@@ -1,4 +1,4 @@
-# Foraminifera Detection Automation
+# 3D-CT-Forams (ENSEIRB-MATMECA - PACEA)
 
 ## Overview
 
