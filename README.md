@@ -7,7 +7,7 @@ This project aims to automate the counting of foraminifera by utilizing object d
 ## Project Structure
 
 The directory structure of the project is organized as follows:
-
+```
 .
 ├── datasets
 │   ├── LABELME          # Labeling data for the dataset in labelme format
@@ -51,16 +51,21 @@ The directory structure of the project is organized as follows:
 │           ├── yolopred2labelme.py          # Run inference on a folder of images using a YOLO model and generate LabelMe-compatible JSON annotations.format
 │           └── yolotolabelme.py              # Convert YOLO annotations to LabelMe format and save as JSON files along with the images.
 └── training              # Training scripts and configurations
+```
 
 ## Getting Started
 
 1. **Clone the Repository**:
 
+```bash
    git clone git@github.com:N-Van/3D-CT-Forams_ENSEIRB-MATMECA.git
+```
 
 2. **Set Up the Environment**:
    Ensure you have the required dependencies installed. You can use a virtual environment:
 
+```bash
    python -m venv venv
    source venv/bin/activate  # On Windows use `venv\Scripts\activate`
    pip install -r requirements.txt
+```
