@@ -10,7 +10,7 @@ The directory structure of the project is organized as follows:
 ```
 .
 ├── datasets
-│   ├── LABELME          # Labeling data for the dataset in labelme format
+│   ├── LABELME          # Labeled data in labelme format
 │   ├── RAW              # Raw microtomography images in format TIF or PNG
 │   ├── README.md
 │   └── YOLO             # YOLO-specific dataset preparation
