@@ -50,7 +50,7 @@ The directory structure of the project is organized as follows:
 │           ├── split.py    # Split a dataset into training and validation sets. The dataset should contain "images" and "labels" subfolders. The script will shuffle the dataset and create separate folders for training and validation data based on the specified split ratio.
 │           ├── yolopred2labelme.py          # Run inference on a folder of images using a YOLO model and generate LabelMe-compatible JSON annotations.format
 │           └── yolotolabelme.py              # Convert YOLO annotations to LabelMe format and save as JSON files along with the images.
-└── training              # Training scripts and configurations
+└── training              # Training output
 ```
 
 ## Getting Started
