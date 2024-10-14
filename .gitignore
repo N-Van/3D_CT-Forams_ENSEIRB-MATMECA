@@ -1,0 +1,26 @@
+# Ignore image files
+*.jpg
+*.jpeg
+*.png
+*.tif
+*.tiff
+
+# Ignore model weights
+*.pt
+*.h5
+*.ckpt
+*.onnx
+*.pth
+
+# Ignore dataset
+
+datasets/LABELME/*
+datasets/RAW/*
+datasets/YOLO/*
+
+
+# Ignore models
+
+models/base/SAM/*
+models/base/YOLO/*
+models/trained/*

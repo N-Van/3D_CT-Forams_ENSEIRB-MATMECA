@@ -1,0 +1,6 @@
+opencv-python
+Pillow
+ultralytics
+pandas
+tifffile
+tqdm
