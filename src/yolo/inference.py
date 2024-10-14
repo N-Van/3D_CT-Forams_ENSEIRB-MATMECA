@@ -33,7 +33,7 @@ def run_inference(model, input_folder, output_folder):
             print(f'Processed {filename} and saved to {output_path}')
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Run inference on a folder of images using YOLOv8.')
+    parser = argparse.ArgumentParser(description='Run inference on a folder of images using YOLO.')
     parser.add_argument('input_folder', type=str, help='Path to the folder containing input images.')
     parser.add_argument('output_folder', type=str, help='Path to the folder where output images will be saved.')
     parser.add_argument('model_path', type=str, help='Path to the YOLO model file (e.g., yolov11n.pt).')
