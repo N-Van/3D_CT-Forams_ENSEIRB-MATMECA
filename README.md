@@ -56,9 +56,13 @@ The directory structure of the project is organized as follows:
 ## Getting Started
 
 1. **Clone the Repository**:
-
+- Avec SSH :
 ```bash
    git clone git@github.com:N-Van/3D-CT-Forams_ENSEIRB-MATMECA.git
+```
+- Avec HTML :
+```bash
+   git clone https://github.com/N-Van/3D-CT-Forams_ENSEIRB-MATMECA.git
 ```
 
 2. **Set Up the Environment**:
