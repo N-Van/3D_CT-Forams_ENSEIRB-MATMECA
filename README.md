@@ -75,7 +75,7 @@ The directory structure of the project is organized as follows:
    pip install -r requirement.txt
 ```
 
-## Resources
+## Ressources
 
 You can find datasets and trained models in the following [Google Drive Repository](https://drive.google.com/drive/folders/1HA9SrQdXyjDlxhwnYbfOX51E-qSh1Lip?usp=sharing).
 
