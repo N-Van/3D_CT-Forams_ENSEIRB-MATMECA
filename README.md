@@ -74,3 +74,10 @@ The directory structure of the project is organized as follows:
    source venv/bin/activate  # On Windows use `venv\Scripts\activate`
    pip install -r requirement.txt
 ```
+
+## Resources
+
+You can find datasets and trained models in the following [Google Drive Repository](https://drive.google.com/drive/folders/1HA9SrQdXyjDlxhwnYbfOX51E-qSh1Lip?usp=sharing).
+
+
+
