@@ -56,11 +56,11 @@ The directory structure of the project is organized as follows:
 ## Getting Started
 
 1. **Clone the Repository**:
-- Avec SSH :
+- With SSH :
 ```bash
    git clone git@github.com:N-Van/3D-CT-Forams_ENSEIRB-MATMECA.git
 ```
-- Avec HTML :
+- With HTML :
 ```bash
    git clone https://github.com/N-Van/3D-CT-Forams_ENSEIRB-MATMECA.git
 ```
