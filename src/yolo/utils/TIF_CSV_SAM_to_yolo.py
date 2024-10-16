@@ -53,8 +53,9 @@ def apply_sam_model(image, bounding_box, sam_model):
 
     return None
 
-def save_images_and_annotations(tif_path, csv_path, output_folder, box_width, num_frames, model_path, base_image_name):
-    sam_model = SAM(model_path)
+def save_images_and_annotations(tif_path, csv_path, output_folder, box_width, num_frames, model_path, base_image_name, apply_sam):
+    if apply_sam:
+        sam_model = SAM(model_path)
 
     # Create the output folder and necessary subfolders
     os.makedirs(output_folder, exist_ok=True)
@@ -96,14 +97,30 @@ def save_images_and_annotations(tif_path, csv_path, output_folder, box_width, nu
 
         # Perform inference for each bounding box
         for bbox in bounding_boxes:
-            mask = apply_sam_model(img_array, bbox, sam_model)
-            if mask is not None:
+            if not apply_sam:
                 # Calculate YOLO format bounding box
                 x_center = (bbox[0] + bbox[2]) / 2 / img_array.shape[1]
                 y_center = (bbox[1] + bbox[3]) / 2 / img_array.shape[0]
                 width = (bbox[2] - bbox[0]) / img_array.shape[1]
                 height = (bbox[3] - bbox[1]) / img_array.shape[0]
                 annotations.append(f"0 {x_center} {y_center} {width} {height}")
+            else:
+                mask = apply_sam_model(img_array, bbox, sam_model)
+                if mask is not None:
+                    y_indices, x_indices = np.where(mask)  # Get the coordinates of the mask
+                    if len(y_indices) > 0 and len(x_indices) > 0:  # Ensure there are coordinates
+                        bbox = [
+                            np.min(x_indices),  # Left
+                            np.min(y_indices),  # Top
+                            np.max(x_indices),  # Right
+                            np.max(y_indices)   # Bottom
+                        ]
+                    # Calculate YOLO format bounding box
+                    x_center = (bbox[0] + bbox[2]) / 2 / img_array.shape[1]
+                    y_center = (bbox[1] + bbox[3]) / 2 / img_array.shape[0]
+                    width = (bbox[2] - bbox[0]) / img_array.shape[1]
+                    height = (bbox[3] - bbox[1]) / img_array.shape[0]
+                    annotations.append(f"0 {x_center} {y_center} {width} {height}")
 
         # Save the image untouched in the images folder
         output_image_path = os.path.join(images_folder, f'{base_image_name}_{z_idx}.png')
@@ -122,10 +139,12 @@ if __name__ == "__main__":
     parser.add_argument('output_folder', type=str, help='Path to the output folder.')
     parser.add_argument('--box_width', default=20, type=int, help='Width of the bounding box around each point.')
     parser.add_argument('--num_frames', default=5, type=int, help='Number of frames above and below to consider.')
-    parser.add_argument('--model_path', default="mobile_sam.pt", type=str, help='Path to the SAM model file.')
+    parser.add_argument('--model_path', default="mobile_sam.pt",type=str, help='Path to the SAM model file.')
     parser.add_argument('--base_image_name', default="image", type=str, help='Base name for output images and annotations.')
+    parser.add_argument("--apply_sam", default=True, type=bool, help='Use SAM to refine the bbox')
+    
 
     args = parser.parse_args()
     
-    save_images_and_annotations(args.tif_path, args.csv_path, args.output_folder, args.box_width, args.num_frames, args.model_path, args.base_image_name)
-    print(f'Images saved to {os.path.join(args.output_folder, "images")} with annotations in YOLO format in the "labels" folder.')
+    save_images_and_annotations(args.tif_path, args.csv_path, args.output_folder, args.box_width, args.num_frames, args.model_path, args.base_image_name,args.apply_sam)
+    print(f'Images and annotations saved in {args.output_folder}.')

@@ -54,8 +54,9 @@ def apply_sam_model(image, bounding_box, sam_model):
 
     return None
 
-def save_images_and_annotations(tif_path, csv_path, output_folder, box_width, num_frames, model_path, base_image_name):
-    sam_model = SAM(model_path)
+def save_images_and_annotations(tif_path, csv_path, output_folder, box_width, num_frames, model_path, base_image_name, apply_sam):
+    if apply_sam:
+        sam_model = SAM(model_path)
 
     # Create the output folder if it doesn't exist
     os.makedirs(output_folder, exist_ok=True)
@@ -93,8 +94,7 @@ def save_images_and_annotations(tif_path, csv_path, output_folder, box_width, nu
 
         # Perform inference for each bounding box
         for bbox in bounding_boxes:
-            mask = apply_sam_model(img_array, bbox, sam_model)
-            if mask is not None:
+            if not apply_sam:
                 # Create a rectangle annotation
                 annotations.append({
                     "label": "foraminifère",
@@ -107,6 +107,31 @@ def save_images_and_annotations(tif_path, csv_path, output_folder, box_width, nu
                     "shape_type": "rectangle",
                     "flags": {}
                 })
+            else:
+                mask = apply_sam_model(img_array, bbox, sam_model)
+                if mask is not None:
+                    # Get the new bounding box from the mask
+                    y_indices, x_indices = np.where(mask)  # Get the coordinates of the mask
+                    if len(y_indices) > 0 and len(x_indices) > 0:  # Ensure there are coordinates
+                        new_bbox = [
+                            np.min(x_indices),  # Left
+                            np.min(y_indices),  # Top
+                            np.max(x_indices),  # Right
+                            np.max(y_indices)   # Bottom
+                        ]
+
+                        # Create a rectangle annotation with the new bounding box
+                        annotations.append({
+                            "label": "foraminifère",
+                            "text": "",
+                            "points": [
+                                [new_bbox[0], new_bbox[1]],  # Top-left corner
+                                [new_bbox[2], new_bbox[3]]   # Bottom-right corner
+                            ],
+                            "group_id": None,
+                            "shape_type": "rectangle",
+                            "flags": {}
+                        })
 
         # Save the image untouched in the output folder
         output_image_path = os.path.join(output_folder, f'{base_image_name}_{z_idx}.png')
@@ -118,7 +143,7 @@ def save_images_and_annotations(tif_path, csv_path, output_folder, box_width, nu
             "version": "0.4.10",
             "flags": {},
             "shapes": annotations,
-            "imagePath": f'{base_image_name}_z_{z_idx}.png',
+            "imagePath": f'{base_image_name}_{z_idx}.png',
             "imageData": None,
             "imageHeight": img_array.shape[0],
             "imageWidth": img_array.shape[1],
@@ -136,8 +161,10 @@ if __name__ == "__main__":
     parser.add_argument('--num_frames', default=5, type=int, help='Number of frames above and below to consider.')
     parser.add_argument('--model_path', default="mobile_sam.pt",type=str, help='Path to the SAM model file.')
     parser.add_argument('--base_image_name', default="image", type=str, help='Base name for output images and annotations.')
+    parser.add_argument("--apply_sam", default=True, type=bool, help='Use SAM to refine the bbox')
+    
 
     args = parser.parse_args()
     
-    save_images_and_annotations(args.tif_path, args.csv_path, args.output_folder, args.box_width, args.num_frames, args.model_path, args.base_image_name)
+    save_images_and_annotations(args.tif_path, args.csv_path, args.output_folder, args.box_width, args.num_frames, args.model_path, args.base_image_name,args.apply_sam)
     print(f'Images and annotations saved in {args.output_folder}.')

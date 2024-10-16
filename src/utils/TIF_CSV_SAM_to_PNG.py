@@ -58,8 +58,9 @@ def draw_bounding_box(image, bounding_box):
     cv2.rectangle(image, (x_min, y_min), (x_max, y_max), color=(0, 255, 0), thickness=2)
     return image
 
-def save_images_with_masks(tif_path, csv_path, output_folder, box_width, num_frames, model_path, base_image_name):
-    sam_model = SAM(model_path)
+def save_images_and_annotations(tif_path, csv_path, output_folder, box_width, num_frames, model_path, base_image_name, apply_sam):
+    if apply_sam:
+        sam_model = SAM(model_path)
 
     # Load the TIFF file
     tif_data = tiff.imread(tif_path)
@@ -94,12 +95,22 @@ def save_images_with_masks(tif_path, csv_path, output_folder, box_width, num_fra
 
         # Perform inference for each bounding box
         for bbox in bounding_boxes:
-            mask = apply_sam_model(img_array, bbox, sam_model)
-            if mask is not None:
-                combined_mask = np.clip(combined_mask + mask, 0, 255)
-
-            # Draw the bounding box on the original image
-            img_array = draw_bounding_box(img_array, bbox)
+            if not apply_sam:
+                # Draw the bounding box on the original image
+                img_array = draw_bounding_box(img_array, bbox)
+            else:
+                mask = apply_sam_model(img_array, bbox, sam_model)
+                if mask is not None:                  # Get the new bounding box from the mask
+                    y_indices, x_indices = np.where(mask)  # Get the coordinates of the mask
+                    if len(y_indices) > 0 and len(x_indices) > 0:  # Ensure there are coordinates
+                        new_bbox = [
+                            np.min(x_indices),  # Left
+                            np.min(y_indices),  # Top
+                            np.max(x_indices),  # Right
+                            np.max(y_indices)   # Bottom
+                        ]
+                    # Draw the bounding box on the original image
+                    img_array = draw_bounding_box(img_array, new_bbox)
 
         # Create output image
         output_image = img_array.copy()  # Base image
@@ -123,10 +134,12 @@ if __name__ == "__main__":
     parser.add_argument('output_folder', type=str, help='Path to the output folder.')
     parser.add_argument('--box_width', default=20, type=int, help='Width of the bounding box around each point.')
     parser.add_argument('--num_frames', default=5, type=int, help='Number of frames above and below to consider.')
-    parser.add_argument('--model_path', default="mobile_sam.pt", type=str, help='Path to the SAM model file.')
+    parser.add_argument('--model_path', default="mobile_sam.pt",type=str, help='Path to the SAM model file.')
     parser.add_argument('--base_image_name', default="image", type=str, help='Base name for output images and annotations.')
+    parser.add_argument("--apply_sam", default=True, type=bool, help='Use SAM to refine the bbox')
+    
 
     args = parser.parse_args()
     
-    save_images_with_masks(args.tif_path, args.csv_path, args.output_folder, args.box_width, args.num_frames, args.model_path, args.base_image_name)
-    print(f'Images with masks and bounding boxes saved to {args.output_folder}')
+    save_images_and_annotations(args.tif_path, args.csv_path, args.output_folder, args.box_width, args.num_frames, args.model_path, args.base_image_name,args.apply_sam)
+    print(f'Images saved in {args.output_folder}.')
