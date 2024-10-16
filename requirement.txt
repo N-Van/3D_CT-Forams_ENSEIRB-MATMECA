@@ -4,3 +4,4 @@ ultralytics
 pandas
 tifffile
 tqdm
+labelme2yolo

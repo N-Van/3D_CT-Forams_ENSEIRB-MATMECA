@@ -7,6 +7,7 @@ import torch
 from ultralytics import SAM
 from tqdm import tqdm
 import tifffile as tiff
+import json
 
 def apply_sam_model(image, bounding_box, sam_model):
     bboxes = torch.tensor([bounding_box])  # Convert to tensor
@@ -56,12 +57,8 @@ def apply_sam_model(image, bounding_box, sam_model):
 def save_images_and_annotations(tif_path, csv_path, output_folder, box_width, num_frames, model_path, base_image_name):
     sam_model = SAM(model_path)
 
-    # Create the output folder and necessary subfolders
+    # Create the output folder if it doesn't exist
     os.makedirs(output_folder, exist_ok=True)
-    images_folder = os.path.join(output_folder, "images")
-    labels_folder = os.path.join(output_folder, "labels")
-    os.makedirs(images_folder, exist_ok=True)
-    os.makedirs(labels_folder, exist_ok=True)
 
     # Load the TIFF file
     tif_data = tiff.imread(tif_path)
@@ -98,34 +95,49 @@ def save_images_and_annotations(tif_path, csv_path, output_folder, box_width, nu
         for bbox in bounding_boxes:
             mask = apply_sam_model(img_array, bbox, sam_model)
             if mask is not None:
-                # Calculate YOLO format bounding box
-                x_center = (bbox[0] + bbox[2]) / 2 / img_array.shape[1]
-                y_center = (bbox[1] + bbox[3]) / 2 / img_array.shape[0]
-                width = (bbox[2] - bbox[0]) / img_array.shape[1]
-                height = (bbox[3] - bbox[1]) / img_array.shape[0]
-                annotations.append(f"0 {x_center} {y_center} {width} {height}")
+                # Create a rectangle annotation
+                annotations.append({
+                    "label": "foraminifère",
+                    "text": "",
+                    "points": [
+                        [bbox[0], bbox[1]],  # Top-left corner
+                        [bbox[2], bbox[3]]   # Bottom-right corner
+                    ],
+                    "group_id": None,
+                    "shape_type": "rectangle",
+                    "flags": {}
+                })
 
-        # Save the image untouched in the images folder
-        output_image_path = os.path.join(images_folder, f'{base_image_name}_{z_idx}.png')
+        # Save the image untouched in the output folder
+        output_image_path = os.path.join(output_folder, f'{base_image_name}_{z_idx}.png')
         cv2.imwrite(output_image_path, img_array)
 
-        # Write annotations to a file with the same name as the image in the labels folder
-        annotation_file_path = os.path.join(labels_folder, f'{base_image_name}_{z_idx}.txt')
+        # Create a LabelMe-style annotation file
+        annotation_file_path = os.path.join(output_folder, f'{base_image_name}_{z_idx}.json')
+        labelme_data = {
+            "version": "0.4.10",
+            "flags": {},
+            "shapes": annotations,
+            "imagePath": f'{base_image_name}_z_{z_idx}.png',
+            "imageData": None,
+            "imageHeight": img_array.shape[0],
+            "imageWidth": img_array.shape[1],
+            "text": ""
+        }
         with open(annotation_file_path, 'w') as ann_file:
-            for ann in annotations:
-                ann_file.write(f"{ann}\n")
+            json.dump(labelme_data, ann_file, indent=4)
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Process TIFF images, apply segmentation using a SAM model, and save images along with YOLO format annotations. The output will include both the processed images and their corresponding label files in a specified output folder.')
+    parser = argparse.ArgumentParser(description='Process TIFF images, apply segmentation using a SAM model, and save images along with LabelMe annotations.')
     parser.add_argument('tif_path', type=str, help='Path to the TIFF file.')
     parser.add_argument('csv_path', type=str, help='Path to the input CSV file with coordinates.')
     parser.add_argument('output_folder', type=str, help='Path to the output folder.')
     parser.add_argument('--box_width', default=20, type=int, help='Width of the bounding box around each point.')
     parser.add_argument('--num_frames', default=5, type=int, help='Number of frames above and below to consider.')
-    parser.add_argument('--model_path', default="mobile_sam.pt", type=str, help='Path to the SAM model file.')
+    parser.add_argument('--model_path', default="mobile_sam.pt",type=str, help='Path to the SAM model file.')
     parser.add_argument('--base_image_name', default="image", type=str, help='Base name for output images and annotations.')
 
     args = parser.parse_args()
     
     save_images_and_annotations(args.tif_path, args.csv_path, args.output_folder, args.box_width, args.num_frames, args.model_path, args.base_image_name)
-    print(f'Images saved to {os.path.join(args.output_folder, "images")} with annotations in YOLO format in the "labels" folder.')
+    print(f'Images and annotations saved in {args.output_folder}.')

@@ -58,8 +58,8 @@ def draw_bounding_box(image, bounding_box):
     cv2.rectangle(image, (x_min, y_min), (x_max, y_max), color=(0, 255, 0), thickness=2)
     return image
 
-def save_images_with_masks(tif_path, csv_path, output_folder, box_width, num_frames):
-    sam_model = SAM("models/mobile_sam.pt")
+def save_images_with_masks(tif_path, csv_path, output_folder, box_width, num_frames, model_path, base_image_name):
+    sam_model = SAM(model_path)
 
     # Load the TIFF file
     tif_data = tiff.imread(tif_path)
@@ -113,7 +113,7 @@ def save_images_with_masks(tif_path, csv_path, output_folder, box_width, num_fra
         output_image = cv2.addWeighted(mask_colored, alpha, output_image, 1 - alpha, 0)
 
         # Save the output image as PNG
-        output_filename = os.path.join(output_folder, f'masked_image_z_{z_idx}.png')
+        output_filename = os.path.join(output_folder, f'{base_image_name}_{z_idx}.png')
         cv2.imwrite(output_filename, output_image)
 
 if __name__ == "__main__":
@@ -121,10 +121,12 @@ if __name__ == "__main__":
     parser.add_argument('tif_path', type=str, help='Path to the TIFF file.')
     parser.add_argument('csv_path', type=str, help='Path to the input CSV file with coordinates.')
     parser.add_argument('output_folder', type=str, help='Path to the output folder.')
-    parser.add_argument('box_width', type=int, help='Width of the bounding box around each point.')
-    parser.add_argument('num_frames', type=int, help='Number of frames above and below to consider.')
+    parser.add_argument('--box_width', default=20, type=int, help='Width of the bounding box around each point.')
+    parser.add_argument('--num_frames', default=5, type=int, help='Number of frames above and below to consider.')
+    parser.add_argument('--model_path', default="mobile_sam.pt", type=str, help='Path to the SAM model file.')
+    parser.add_argument('--base_image_name', default="image", type=str, help='Base name for output images and annotations.')
 
     args = parser.parse_args()
     
-    save_images_with_masks(args.tif_path, args.csv_path, args.output_folder, args.box_width, args.num_frames)
+    save_images_with_masks(args.tif_path, args.csv_path, args.output_folder, args.box_width, args.num_frames, args.model_path, args.base_image_name)
     print(f'Images with masks and bounding boxes saved to {args.output_folder}')

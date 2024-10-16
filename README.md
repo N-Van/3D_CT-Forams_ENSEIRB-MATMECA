@@ -38,6 +38,7 @@ The directory structure of the project is organized as follows:
 │   ├── README.md
 │   ├── utils             # Utility scripts for data processing
 │   │   ├── apply_bbox_on_dataset.py  # Generate and save PNG images from a TIFF file with bounding boxes drawn around foraminifera coordinates specified in a CSV file.
+│   │   ├── TIF_CSV_SAM_to_labelme.py  # Process TIFF images, apply segmentation using a SAM model, and save images along with LabelMe annotations.
 │   │   ├── TIF2PNG.py    # Extract individual frames from a multi-frame TIFF file and save them as PNG images in the specified output folder.
 │   │   └── TIF_CSV_SAM_to_PNG.py  # Process TIFF images to apply segmentation masks and draw bounding boxes around foraminifera coordinates specified in a CSV file. The output is saved as PNG images.
 │   └── yolo
