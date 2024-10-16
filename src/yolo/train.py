@@ -51,7 +51,7 @@ def train_yolo(dataset_path, model_path, epochs, batch_size, img_size, project_n
     # Train the model with the augmented dataset
     model.train(data=dataset_path,
                 epochs=epochs, batch=batch_size, imgsz=img_size,
-                project=project_name, augment=True)
+                project="training", augment=True)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Train YOLO model with augmentations.')
@@ -60,8 +60,6 @@ if __name__ == "__main__":
     parser.add_argument('--epochs', type=int, default=1000, help='Number of training epochs (default: 1000).')
     parser.add_argument('--batch_size', type=int, default=1, help='Batch size for training (default: 1).')
     parser.add_argument('--img_size', type=int, default=2048, help='Image size for training (default: 2048).')
-    parser.add_argument('--project_name', type=str, default='training', help='Name of the project (default: training).')
-    
     # Parse command-line arguments
     args = parser.parse_args()
     

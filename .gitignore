@@ -24,3 +24,7 @@ datasets/YOLO/*
 models/base/SAM/*
 models/base/YOLO/*
 models/trained/*
+
+# Ignore training 
+
+training
