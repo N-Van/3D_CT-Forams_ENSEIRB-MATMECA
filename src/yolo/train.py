@@ -41,7 +41,7 @@ def __init__(self, p=1.0):
 Albumentations.__init__ = __init__
 
 # Training function
-def train_yolo(dataset_path, model_path, epochs, batch_size, img_size, project_name):
+def train_yolo(dataset_path, model_path, epochs, batch_size, img_size):
     """Train the YOLO model with the specified dataset and parameters."""
     
     # Initialize YOLO model with the given model path
@@ -64,4 +64,4 @@ if __name__ == "__main__":
     args = parser.parse_args()
     
     # Call the training function with parsed arguments
-    train_yolo(args.dataset_path, args.model_path, args.epochs, args.batch_size, args.img_size, args.project_name)
+    train_yolo(args.dataset_path, args.model_path, args.epochs, args.batch_size, args.img_size)
