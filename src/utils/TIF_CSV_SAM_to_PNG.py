@@ -136,7 +136,8 @@ if __name__ == "__main__":
     parser.add_argument('--num_frames', default=5, type=int, help='Number of frames above and below to consider.')
     parser.add_argument('--model_path', default="mobile_sam.pt",type=str, help='Path to the SAM model file.')
     parser.add_argument('--base_image_name', default="image", type=str, help='Base name for output images and annotations.')
-    parser.add_argument("--apply_sam", default=True, type=bool, help='Use SAM to refine the bbox')
+    parser.add_argument("--apply_sam", action="store_true", help="Use SAM to refine the bbox")
+
     
 
     args = parser.parse_args()

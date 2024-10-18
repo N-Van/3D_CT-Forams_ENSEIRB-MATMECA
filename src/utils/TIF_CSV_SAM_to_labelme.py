@@ -113,7 +113,7 @@ def save_images_and_annotations(tif_path, csv_path, output_folder, box_width, nu
                     # Get the new bounding box from the mask
                     y_indices, x_indices = np.where(mask)  # Get the coordinates of the mask
                     if len(y_indices) > 0 and len(x_indices) > 0:  # Ensure there are coordinates
-                        new_bbox = [
+                        bbox = [
                             np.min(x_indices),  # Left
                             np.min(y_indices),  # Top
                             np.max(x_indices),  # Right
@@ -125,8 +125,8 @@ def save_images_and_annotations(tif_path, csv_path, output_folder, box_width, nu
                             "label": "foraminifère",
                             "text": "",
                             "points": [
-                                [new_bbox[0], new_bbox[1]],  # Top-left corner
-                                [new_bbox[2], new_bbox[3]]   # Bottom-right corner
+                                [int(bbox[0]), int(bbox[1])],  # Top-left corner
+                                [int(bbox[2]), int(bbox[3])]   # Bottom-right corner
                             ],
                             "group_id": None,
                             "shape_type": "rectangle",
@@ -161,7 +161,8 @@ if __name__ == "__main__":
     parser.add_argument('--num_frames', default=5, type=int, help='Number of frames above and below to consider.')
     parser.add_argument('--model_path', default="mobile_sam.pt",type=str, help='Path to the SAM model file.')
     parser.add_argument('--base_image_name', default="image", type=str, help='Base name for output images and annotations.')
-    parser.add_argument("--apply_sam", default=True, type=bool, help='Use SAM to refine the bbox')
+    parser.add_argument("--apply_sam", action="store_true", help="Use SAM to refine the bbox")
+
     
 
     args = parser.parse_args()
