@@ -79,5 +79,5 @@ The directory structure of the project is organized as follows:
 
 You can find datasets and trained models in the following [Google Drive Repository](https://drive.google.com/drive/folders/1HA9SrQdXyjDlxhwnYbfOX51E-qSh1Lip?usp=sharing).
 
-
+You can find our oral presentation on the following link: https://docs.google.com/presentation/d/1QYHk1Goxds1vmWF4biPpaacvyNd_hNFpewftqWoVnEc/edit?usp=sharing
 
