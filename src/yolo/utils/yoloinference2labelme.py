@@ -6,7 +6,7 @@ import shutil  # Import shutil for copying files
 from ultralytics import YOLO
 
 # Inference function
-def run_inference(model, input_folder, output_folder):
+def run_inference(model, input_folder, output_folder, conf_threshold):
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
 
@@ -20,7 +20,7 @@ def run_inference(model, input_folder, output_folder):
             height, width, _ = image.shape
 
             # Perform inference
-            results = model(image)
+            results = model(image, conf=conf_threshold)
 
             # Create the JSON structure for LabelMe
             json_data = {
@@ -69,11 +69,12 @@ if __name__ == "__main__":
     parser.add_argument('input_folder', type=str, help='Path to the folder containing input images.')
     parser.add_argument('output_folder', type=str, help='Path to the folder where output images will be saved.')
     parser.add_argument('model_path', type=str, help='Path to the YOLO model file (e.g., yolov11n.pt).')
+    parser.add_argument('--conf', type=float, default=0.3, help='Confidence threshold for detections. Default is 0.3.')
 
     args = parser.parse_args()
 
     # Load the specified YOLO model
     model = YOLO(args.model_path)
 
-    # Run inference
-    run_inference(model, args.input_folder, args.output_folder)
+    # Run inference with the specified confidence threshold
+    run_inference(model, args.input_folder, args.output_folder, args.conf)

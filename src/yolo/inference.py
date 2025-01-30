@@ -15,17 +15,22 @@ def run_inference(model, input_folder, output_folder):
             image = cv2.imread(img_path)
 
             # Perform inference
-            results = model(image)
+            results = model(image, conf=0.3)
 
             # Process results
             for result in results:
                 boxes = result.boxes.xyxy  # Get bounding boxes
                 confidences = result.boxes.conf  # Get confidence scores
+                class_ids = result.boxes.cls  # Get class IDs
 
-                for box, conf in zip(boxes, confidences):
+                for box, conf, class_id in zip(boxes, confidences, class_ids):
                     x1, y1, x2, y2 = map(int, box)
+                    class_name = model.names[int(class_id)]  # Get class name from ID
+                    label = f'{class_name} {conf:.2f}'
+
+                    # Draw bounding box and label
                     cv2.rectangle(image, (x1, y1), (x2, y2), (0, 255, 0), 2)
-                    cv2.putText(image, f'{conf:.2f}', (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+                    cv2.putText(image, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
 
             # Save the output image
             output_path = os.path.join(output_folder, filename)
