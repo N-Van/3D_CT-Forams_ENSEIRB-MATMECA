@@ -91,7 +91,14 @@ Ensure you have the required dependencies installed. You can use a virtual envir
    pip install -r requirement.txt
 ```
 
+
 ## Resources
 
 - **Datasets, results and trained models**: [Google Drive Repository](https://drive.google.com/drive/folders/1HA9SrQdXyjDlxhwnYbfOX51E-qSh1Lip?usp=sharing)
 - **Slides related to this project**: [Google Slides](https://docs.google.com/presentation/d/1QYHk1Goxds1vmWF4biPpaacvyNd_hNFpewftqWoVnEc/edit?usp=sharing)
+
+
+## Example
+
+This is an example showcasing the results.
+![alt text](output_animation.gif)
