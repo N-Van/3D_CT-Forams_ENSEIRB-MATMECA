@@ -101,4 +101,5 @@ Ensure you have the required dependencies installed. You can use a virtual envir
 ## Example
 
 This is an example showcasing the results.
+
 ![alt text](output_animation.gif)
