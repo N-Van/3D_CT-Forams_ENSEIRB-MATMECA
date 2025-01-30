@@ -14,6 +14,13 @@ This directory contains multiple scripts for clustering foram detection data usi
 │   └── README.md
 ```
 
+## Installation
+
+Ensure you have Python installed and the required dependencies:
+```bash
+pip install hdbscan pandas scikit-learn matplotlib numpy
+```
+
 ## Scripts
 
 ### `hdbscan_clustering.py`
