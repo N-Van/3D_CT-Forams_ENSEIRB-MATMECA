@@ -28,7 +28,7 @@ def __init__(self, p=1.0):
             A.HorizontalFlip(p=0.5),
             A.VerticalFlip(p=0.5),
             A.RandomBrightnessContrast(p=0.1),
-            A.BBoxSafeRandomCrop(erosion_rate=0.7, p=1.0)
+            #A.BBoxSafeRandomCrop(erosion_rate=0.7, p=1.0)
         ]  # List of augmentations
 
         # Combine transformations with bounding box parameters
