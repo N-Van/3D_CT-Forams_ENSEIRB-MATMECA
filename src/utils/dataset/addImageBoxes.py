@@ -20,14 +20,9 @@ def draw_image_masks(image, bounding_boxes, bgr_color=(255,128,0)):
 # Apply SAM on an image with a /list/ of bounding boxes
 def apply_sam_model_bbox_list(image, bounding_boxes, sam_model):
     image = image.astype(np.float32) / 255.0
-    if image.ndim == 2:  # Grayscale
-        image = np.stack([image] * 3, axis=-1)
-    elif image.ndim == 3 and image.shape[2] == 4:  # RGBA
-        image = image[:, :, :3]
 
     # Perform segmentation using the SAM model
-    results = sam_model.predict(image, stream=False, bboxes=bounding_boxes)
-    print(len(results))
+    results = sam_model.predict(image, stream=False, bboxes=bounding_boxes, imgsz = 1024)
     return results
 
 # Apply SAM on an image with a single bounding box => soon to be deprecated
@@ -264,9 +259,9 @@ def save_images_and_annotations(tif_path, csv_path, output_folder, box_width, nu
     points = df.to_numpy()[:, 1:]
     n_points = points.shape[0]
     if draw_mask:
-        min_masked_frames, max_masked_frames = compute_max_point_frames(df.to_numpy()[:, 1:], box_width, num_frames, num_frames_to_mask, tif_shape)
+        min_masked_frames, max_masked_frames = compute_max_point_frames(points, box_width, num_frames, num_frames_to_mask, tif_shape)
 
-    # For each direcion
+    # For each direction
     for direction in axis_indices: # 0: z, 1: y, 2: x
         label_frame = np.zeros([n_points, 2], dtype='int32')
         label_frame[:, 0] = points[:, 2-direction] - num_frames // 2
@@ -304,7 +299,9 @@ def save_images_and_annotations(tif_path, csv_path, output_folder, box_width, nu
             
             # Initialize a list for storing annotations
             annotations, bounding_boxes_list = [], [] # annotations : format yolo, bounding_boxes_list : format pixel (je crois)
-            
+            # TODO: change order (if apply sam first)
+            # TODO: get rid of annotations or bounding_boxes_list
+            # TODO: create function "xyz2bbox" ?
             # Optionnaly perform inference for each bounding box
             if not apply_sam:
                 bounding_boxes_list = bounding_boxes
@@ -318,13 +315,13 @@ def save_images_and_annotations(tif_path, csv_path, output_folder, box_width, nu
                     # bounding_boxes_list = bounding_boxes # Pourquoi c'est exécuté à chaque itération ?
             else:
                 results = apply_sam_model_bbox_list(img_array, bounding_boxes, sam_model) # Results est une liste, avec un élément par image (donc 1 element dans notre cas)
+
                 for pred_box in results[0].boxes:
                     x_center, y_center, width, height = pred_box.xyxyn[0] # YOLO format normalized bounding box
                     annotations.append(f"0 {x_center} {y_center} {width} {height}")
                     bounding_boxes_list.append(pred_box.xyxy[0].int().tolist()) # integer pixel format x1, y1, x2, y2
             
             # TEMP: draw bboxes
-            print(type(bounding_boxes_list[0]))
             img_array = draw_image_masks(img_array, bounding_boxes_list)
 
             # Save the image untouched in the output folder if it has not been processed before
@@ -360,10 +357,6 @@ def save_images_and_annotations(tif_path, csv_path, output_folder, box_width, nu
                         # Enregistrement de l'image modifiée
                         output_image_path = os.path.join(images_folder, f'{base_image_name}_{d}_{idx}.png')
                         cv2.imwrite(output_image_path, img_to_process)
-
-
-
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Process TIFF images, apply segmentation using a SAM model, and save images along with LabelMe annotations.')
