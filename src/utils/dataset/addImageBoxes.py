@@ -273,7 +273,7 @@ def save_images_and_annotations(tif_path, csv_path, output_folder, box_width, nu
             if apply_sam_bboxes or apply_sam_points:
                 for pred_box in results[0].boxes:# Results est une liste, avec un élément par image (donc 1 element dans notre cas)
                     x_center, y_center, width, height = pred_box.xywhn[0] # YOLO format normalized bounding box
-                    annotations_xywhn.append(f"0 {x_center} {y_center} {width} {height}")
+                    annotations_xywhn.append([0, x_center, y_center, width, height]) #TOCHECK: what is the 0 for at line start?
             else:
                 for bbox in bounding_boxes:
                     # Calculate YOLO format bounding box
@@ -281,22 +281,33 @@ def save_images_and_annotations(tif_path, csv_path, output_folder, box_width, nu
                     y_center = (bbox[1] + bbox[3]) / (2 * img_array.shape[0])
                     width = (bbox[2] - bbox[0]) / img_array.shape[1]
                     height = (bbox[3] - bbox[1]) / img_array.shape[0]
-                    annotations_xywhn.append(f"0 {x_center} {y_center} {width} {height}")
+                    annotations_xywhn.append([0, x_center, y_center, width, height])
            
             # TEMP: draw bboxes
-            #img_array = draw_image_masks(img_array, bounding_boxes_list)
+            # Convert xywhn to xyxy
+            bboxes_xyxy = []
+            for bbox_xywhn in annotations_xywhn:
+                _, x_center_n, y_center_n, width_n, height_n = bbox_xywhn
+                x1 = (x_center_n - width_n / 2) * img_array.shape[1]
+                y1 = (y_center_n - height_n / 2) * img_array.shape[0]
+                x2 = x1 + width_n * img_array.shape[1]
+                y2 = y1 + height_n * img_array.shape[0]
+                bboxes_xyxy.append([np.int32(x1), np.int32(y1), np.int32(x2), np.int32(y2)])
+            img_array = draw_image_masks(img_array, bboxes_xyxy)
 
             # Save the image untouched in the output folder if it has not been processed before
             output_image_path = os.path.join(images_folder, f'{base_image_name}_{d}_{idx}.png')
             if not os.path.exists(output_image_path): # TOCHECK: not sure why there is this condition
                cv2.imwrite(output_image_path, img_array)
             # Write annotations to a file with the same name as the image in the labels folder
-            annotation_file_path = os.path.join(labels_folder, f'{base_image_name}_{d}_{idx}.txt')
-            with open(annotation_file_path, 'w') as ann_file:
-                for ann in annotations_xywhn:
-                    ann_file.write(f"{ann}\n")
+            annotations_xywhn_file_path = os.path.join(labels_folder, f'{base_image_name}_{d}_{idx}.txt')
+            with open(annotations_xywhn_file_path, 'w') as ann_file:
+                for bbox_xywhn in annotations_xywhn:
+                    cls, x_center_n, y_center_n, width_n, height_n = bbox_xywhn
+                    ann_file.write(f"{cls} {x_center_n} {y_center_n} {width_n} {height_n}\n")
         # If necessary, draw black masks on the images
-        if (draw_mask == True):
+        if (draw_mask):
+            print("------------------------------------")
             print(f"Direction : axis {d.upper()}")
             for idx in tqdm(range(tif_data.shape[direction]), desc="Drawing mask"):
                 idx_masked_points = np.where(np.logical_or(np.logical_and(min_masked_frames[:, 0] <= idx, idx <= min_masked_frames[:, 1]), np.logical_and(max_masked_frames[:, 0] <= idx, idx <= max_masked_frames[:, 1])))[0]
