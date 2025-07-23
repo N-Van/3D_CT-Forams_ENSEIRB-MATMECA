@@ -196,12 +196,12 @@ def compute_max_point_frames(point_coords, box_width, n_frames, n_mask_frames, t
     return(min_mask_frame_array, max_mask_frame_array)
 
 
-def save_images_and_annotations(tif_path, csv_path, output_folder, box_width, num_frames, axis_indices, model_path, base_image_name, apply_sam, num_frames_to_mask, gray_value=128, csv_separator=';'):
+def save_images_and_annotations(tif_path, csv_path, output_folder, box_width, num_frames, axis_indices, model_path, base_image_name, apply_sam_bboxes, apply_sam_points, num_frames_to_mask, gray_value=128, csv_separator=';'):
     direction_dict = {0:'z', 1:'y', 2:'x'}
     draw_mask = bool(num_frames_to_mask > 1)
     bgr_color = (gray_value, gray_value, gray_value)
     
-    if apply_sam:
+    if apply_sam_bboxes or apply_sam_points:
         sam_model = SAM(model_path)
     
     # Create the output folder and necessary subfolders
@@ -260,12 +260,21 @@ def save_images_and_annotations(tif_path, csv_path, output_folder, box_width, nu
             # Yolo format annotations
             annotations_xywhn = []
             # TODO: create function "xyz2bbox" ?
-            if apply_sam:
-                results = apply_sam_model_bbox_list(img_array, bounding_boxes, sam_model) # Results est une liste, avec un élément par image (donc 1 element dans notre cas)
+            if apply_sam_bboxes:
+                results = apply_sam_model_bbox_list(img_array, bounding_boxes, sam_model)
+            if apply_sam_points:
+                # TEMP: get the centers of the boxes and pass them as a prompt (awkward because we already have the point annotations)
+                centers = []
+                for bbox in bounding_boxes:
+                    x_center = (bbox[0] + bbox[2]) // 2
+                    y_center = (bbox[1] + bbox[3]) // 2
+                    centers.append([x_center, y_center])
+                results = apply_sam_model_point_list(img_array, centers, sam_model)
+            if apply_sam_bboxes or apply_sam_points:
                 for pred_box in results[0].boxes:# Results est une liste, avec un élément par image (donc 1 element dans notre cas)
                     x_center, y_center, width, height = pred_box.xywhn[0] # YOLO format normalized bounding box
                     annotations_xywhn.append(f"0 {x_center} {y_center} {width} {height}")
-            if not apply_sam:
+            else:
                 for bbox in bounding_boxes:
                     # Calculate YOLO format bounding box
                     x_center = (bbox[0] + bbox[2]) / (2 * img_array.shape[1])
@@ -279,7 +288,7 @@ def save_images_and_annotations(tif_path, csv_path, output_folder, box_width, nu
 
             # Save the image untouched in the output folder if it has not been processed before
             output_image_path = os.path.join(images_folder, f'{base_image_name}_{d}_{idx}.png')
-            if not os.path.exists(output_image_path):
+            if not os.path.exists(output_image_path): # TOCHECK: not sure why there is this condition
                cv2.imwrite(output_image_path, img_array)
             # Write annotations to a file with the same name as the image in the labels folder
             annotation_file_path = os.path.join(labels_folder, f'{base_image_name}_{d}_{idx}.txt')
@@ -321,7 +330,8 @@ if __name__ == "__main__":
     parser.add_argument('--axis', required=False, action="append", default=[], help="Indicates the slicing axis along which we want to build our dataset (all axis by default).")
     parser.add_argument('--model_path', default="mobile_sam.pt",type=str, help='Path to the SAM model file.')
     parser.add_argument('--base_image_name', default="image", type=str, help='Base name for output images and annotations.')
-    parser.add_argument('--apply_sam', action="store_true", help="Use SAM to refine the bbox")
+    parser.add_argument('--apply_sam_bboxes', action="store_true", help="Use SAM to refine the bbox with boxes prompts")
+    parser.add_argument('--apply_sam_points', action="store_true", help="Use SAM to refine the bbox with points prompts")
     parser.add_argument('--num_frames_to_mask', default=8, type=int, help='Total number of frames (above and below in total) to consider.')
     parser.add_argument('--mask_color', default=128, type=int, help="Grayscale value used as mask color (default 128)")
     parser.add_argument('--csv_sep', default=';', type=str, help="CSV delimiter character (default \';\')")
@@ -329,5 +339,5 @@ if __name__ == "__main__":
     direction_dict = {'z':0, 'y':1, 'x':2}
     axis_name_list = args.axis + ['z', 'y', 'x']*int(len(args.axis) == 0)
     axis_index_list = [direction_dict[axis_name] for axis_name in axis_name_list if axis_name in direction_dict.keys()]
-    save_images_and_annotations(args.tif_path, args.csv_path, args.output_folder, args.box_width, args.num_frames, axis_index_list, args.model_path, args.base_image_name, args.apply_sam, args.num_frames_to_mask, args.mask_color, args.csv_sep)
+    save_images_and_annotations(args.tif_path, args.csv_path, args.output_folder, args.box_width, args.num_frames, axis_index_list, args.model_path, args.base_image_name, args.apply_sam_bboxes, args.apply_sam_points, args.num_frames_to_mask, args.mask_color, args.csv_sep)
     print(f'Images and annotations saved in {args.output_folder}.')
