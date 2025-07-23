@@ -257,15 +257,14 @@ def save_images_and_annotations(tif_path, csv_path, output_folder, box_width, nu
                 b_max = min(axis_point[idx_row, 1] + box_width // 2, img_array.shape[0])
                 bounding_boxes.append([a_min, b_min, a_max, b_max]) #list
             
-            # Initialize a list for storing annotations
-            annotations = [] # annotations : format yolo
-            # TODO: change order (if apply sam first)
+            # Yolo format annotations
+            annotations_xywhn = []
             # TODO: create function "xyz2bbox" ?
             if apply_sam:
                 results = apply_sam_model_bbox_list(img_array, bounding_boxes, sam_model) # Results est une liste, avec un élément par image (donc 1 element dans notre cas)
                 for pred_box in results[0].boxes:# Results est une liste, avec un élément par image (donc 1 element dans notre cas)
                     x_center, y_center, width, height = pred_box.xywhn[0] # YOLO format normalized bounding box
-                    annotations.append(f"0 {x_center} {y_center} {width} {height}")
+                    annotations_xywhn.append(f"0 {x_center} {y_center} {width} {height}")
             if not apply_sam:
                 for bbox in bounding_boxes:
                     # Calculate YOLO format bounding box
@@ -273,7 +272,7 @@ def save_images_and_annotations(tif_path, csv_path, output_folder, box_width, nu
                     y_center = (bbox[1] + bbox[3]) / (2 * img_array.shape[0])
                     width = (bbox[2] - bbox[0]) / img_array.shape[1]
                     height = (bbox[3] - bbox[1]) / img_array.shape[0]
-                    annotations.append(f"0 {x_center} {y_center} {width} {height}")
+                    annotations_xywhn.append(f"0 {x_center} {y_center} {width} {height}")
            
             # TEMP: draw bboxes
             #img_array = draw_image_masks(img_array, bounding_boxes_list)
@@ -285,7 +284,7 @@ def save_images_and_annotations(tif_path, csv_path, output_folder, box_width, nu
             # Write annotations to a file with the same name as the image in the labels folder
             annotation_file_path = os.path.join(labels_folder, f'{base_image_name}_{d}_{idx}.txt')
             with open(annotation_file_path, 'w') as ann_file:
-                for ann in annotations:
+                for ann in annotations_xywhn:
                     ann_file.write(f"{ann}\n")
         # If necessary, draw black masks on the images
         if (draw_mask == True):
