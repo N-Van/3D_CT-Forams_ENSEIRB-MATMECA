@@ -6,10 +6,7 @@ import tifffile as tiff
 import pandas as pd
 
 from ultralytics import SAM
-from ultralytics.utils.ops import xyxy2xywh
 from tqdm import tqdm
-
-
 
 def draw_image_masks(image, bounding_boxes, bgr_color=(255,128,0)):
     for bounding_box in bounding_boxes:
@@ -27,46 +24,6 @@ def apply_sam_model_point_list(image, points, sam_model):
 def apply_sam_model_bbox_list(image, bboxes, sam_model):
     results = sam_model.predict(image, stream=False, bboxes=bboxes, imgsz = 1024)
     return results
-
-# Apply SAM on an image with a single bounding box => soon to be deprecated
-def apply_sam_model(image, bounding_box, sam_model):
-    bboxes = torch.tensor([bounding_box])  # Convert to tensor # pourquoi un "s", bboxeS ?
-    # Normalize the image
-    image = image.astype(np.float32) / 255.0
-    # Ensure the image has three channels
-    # L'IA d'ultralytics ne sait pas si les images sont converties automatiquement en RGB(A)
-    if image.ndim == 2:  # Grayscale
-        image = np.stack([image] * 3, axis=-1)
-    elif image.ndim == 3 and image.shape[2] == 4:  # RGBA
-        image = image[:, :, :3]
-    # Resize the image to a compatible size (e.g., 1024x1024)
-    # Selon l'IA d'ultralytics, on n'a pas besoin de redimmensionner les images et les bounding boxes nous-mêmes
-    original_size = image.shape[:2]
-    image_resized = cv2.resize(image, (1024, 1024))
-    scale_x = 1024 / original_size[1]
-    scale_y = 1024 / original_size[0]
-    # Adjust bounding box coordinates to match the resized image
-    bbox_resized = [
-        int(bounding_box[0] * scale_x),  # a_min
-        int(bounding_box[1] * scale_y),  # b_min
-        int(bounding_box[2] * scale_x),  # a_max
-        int(bounding_box[3] * scale_y)   # b_max
-    ]
-    # Convert to tensor for inference
-    image_tensor = torch.tensor(image_resized).permute(2, 0, 1).unsqueeze(0)  # BCHW
-    # Perform segmentation using the SAM model
-    results = sam_model.predict(image_tensor, bboxes=torch.tensor([bbox_resized]))
-
-    # Collect masks from results
-    if results and hasattr(results[0], 'masks'):
-        mask = results[0].masks.data  # Shape: (1, height, width)
-        # Convert the boolean mask to uint8 (0 or 255)
-        mask = mask.cpu().numpy().astype(np.uint8) * 255  # Convert to numpy and scale to 255
-        # Resize the mask back to the original image dimensions
-        mask_resized = cv2.resize(mask[0], (original_size[1], original_size[0]), interpolation=cv2.INTER_NEAREST)
-        return mask_resized  # Return the resized mask
-    return None
-
 
 
 def rectangle_intersection(bbox_1, bbox_2):
@@ -285,7 +242,7 @@ def save_images_and_annotations(tif_path, csv_path, output_folder, box_width, nu
             # Convert to BGR format if necessary
             if img_array.ndim == 2:  # Grayscale
                 img_array = cv2.cvtColor(img_array, cv2.COLOR_GRAY2BGR)
-            # Oh là là, c'est vraiment compliqué ! Pour chaque annotation ponctuelle, on a les indices des frames jusqu'où une bbox va être crduplqiuée
+            # Oh là là, c'est vraiment compliqué ! Pour chaque annotation ponctuelle, on a les indices des frames jusqu'où une bbox va être dupliquée
             idx_annotation = np.where(np.logical_and(label_frame[:, 0] <= idx, idx <= label_frame[:, 1]))[0]
             
             # Gather bounding boxes for the current index and the surrounding frames in that direction
@@ -306,6 +263,7 @@ def save_images_and_annotations(tif_path, csv_path, output_folder, box_width, nu
             # TODO: get rid of annotations or bounding_boxes_list
             # TODO: create function "xyz2bbox" ?
             # Optionnaly perform inference for each bounding box
+
             if not apply_sam:
                 bounding_boxes_list = bounding_boxes
                 for bbox in bounding_boxes:
@@ -317,17 +275,7 @@ def save_images_and_annotations(tif_path, csv_path, output_folder, box_width, nu
                     annotations.append(f"0 {x_center} {y_center} {width} {height}")
                     # bounding_boxes_list = bounding_boxes # Pourquoi c'est exécuté à chaque itération ?
             else:
-                #results = apply_sam_model_bbox_list(img_array, bounding_boxes, sam_model) # Results est une liste, avec un élément par image (donc 1 element dans notre cas)
-                # TEMP: get the centers of the boxes and pass them as a prompt (awkward because we already have the point annotations)
-                centers = []
-                for bbox in bounding_boxes:
-                    x_center = (bbox[0] + bbox[2]) // 2
-                    y_center = (bbox[1] + bbox[3]) // 2
-                    centers.append([x_center, y_center])
-                print(idx, " ---------")
-                print(centers[0])
-                results = apply_sam_model_point_list(img_array, centers, sam_model)
-                print(results[0].boxes[0].xywh)
+                results = apply_sam_model_bbox_list(img_array, bounding_boxes, sam_model) # Results est une liste, avec un élément par image (donc 1 element dans notre cas)
                 for pred_box in results[0].boxes:# Results est une liste, avec un élément par image (donc 1 element dans notre cas)
                     x_center, y_center, width, height = pred_box.xyxyn[0] # YOLO format normalized bounding box
                     annotations.append(f"0 {x_center} {y_center} {width} {height}")
