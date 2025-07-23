@@ -19,14 +19,12 @@ def draw_image_masks(image, bounding_boxes, bgr_color=(255,128,0)):
 
 # Apply SAM on an image with a /list/ of points
 def apply_sam_model_point_list(image, points, sam_model):
-    image = image.astype(np.float32) / 255.0
-    labels = [1] * len(points) # label 1 means that point prompts are located inside the objects to segment (postivide prompt)
-    results = sam_model.predict(image, stream=False, points=points, labels=labels, imgsz = 1024)
+    labels = [1] * len(points) # label 1 means that point prompts are located inside the objects to segment (positive prompt)
+    results = sam_model.predict(image, stream=False, points=points, labels=labels, imgsz = 1900)
     return results
 
 # Apply SAM on an image with a /list/ of bounding boxes
 def apply_sam_model_bbox_list(image, bounding_boxes, sam_model):
-    image = image.astype(np.float32) / 255.0 #TOCHECK: Is it necessary?
     results = sam_model.predict(image, stream=False, bboxes=bounding_boxes, imgsz = 1024)
     return results
 
@@ -319,16 +317,16 @@ def save_images_and_annotations(tif_path, csv_path, output_folder, box_width, nu
                     annotations.append(f"0 {x_center} {y_center} {width} {height}")
                     # bounding_boxes_list = bounding_boxes # Pourquoi c'est exécuté à chaque itération ?
             else:
-                #results = apply_sam_model_bbox_list(img_array, bounding_boxes, sam_model) # Results est une liste, avec un élément par image (donc 1 element dans notre cas)
+                results = apply_sam_model_bbox_list(img_array, bounding_boxes, sam_model) # Results est une liste, avec un élément par image (donc 1 element dans notre cas)
                 # TEMP: get the centers of the boxes and pass them as a prompt (awkward because we already have the point annotations)
-                centers = []
+                """centers = []
                 for bbox in bounding_boxes:
                     x_center = (bbox[0] + bbox[2]) // 2
                     y_center = (bbox[1] + bbox[3]) // 2
                     centers.append([x_center, y_center])
                 print(idx, " ---------")
                 print(centers[0])
-                results = apply_sam_model_point_list(img_array, centers, sam_model)
+                results = apply_sam_model_point_list(img_array, centers, sam_model)"""
                 print(results[0].boxes[0].xywh)
                 for pred_box in results[0].boxes:# Results est une liste, avec un élément par image (donc 1 element dans notre cas)
                     x_center, y_center, width, height = pred_box.xyxyn[0] # YOLO format normalized bounding box
