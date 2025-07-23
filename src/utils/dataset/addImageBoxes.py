@@ -258,14 +258,15 @@ def save_images_and_annotations(tif_path, csv_path, output_folder, box_width, nu
                 bounding_boxes.append([a_min, b_min, a_max, b_max]) #list
             
             # Initialize a list for storing annotations
-            annotations, bounding_boxes_list = [], [] # annotations : format yolo, bounding_boxes_list : format pixel (je crois)
+            annotations = [] # annotations : format yolo
             # TODO: change order (if apply sam first)
-            # TODO: get rid of annotations or bounding_boxes_list
             # TODO: create function "xyz2bbox" ?
-            # Optionnaly perform inference for each bounding box
-
+            if apply_sam:
+                results = apply_sam_model_bbox_list(img_array, bounding_boxes, sam_model) # Results est une liste, avec un élément par image (donc 1 element dans notre cas)
+                for pred_box in results[0].boxes:# Results est une liste, avec un élément par image (donc 1 element dans notre cas)
+                    x_center, y_center, width, height = pred_box.xywhn[0] # YOLO format normalized bounding box
+                    annotations.append(f"0 {x_center} {y_center} {width} {height}")
             if not apply_sam:
-                bounding_boxes_list = bounding_boxes
                 for bbox in bounding_boxes:
                     # Calculate YOLO format bounding box
                     x_center = (bbox[0] + bbox[2]) / (2 * img_array.shape[1])
@@ -273,16 +274,9 @@ def save_images_and_annotations(tif_path, csv_path, output_folder, box_width, nu
                     width = (bbox[2] - bbox[0]) / img_array.shape[1]
                     height = (bbox[3] - bbox[1]) / img_array.shape[0]
                     annotations.append(f"0 {x_center} {y_center} {width} {height}")
-                    # bounding_boxes_list = bounding_boxes # Pourquoi c'est exécuté à chaque itération ?
-            else:
-                results = apply_sam_model_bbox_list(img_array, bounding_boxes, sam_model) # Results est une liste, avec un élément par image (donc 1 element dans notre cas)
-                for pred_box in results[0].boxes:# Results est une liste, avec un élément par image (donc 1 element dans notre cas)
-                    x_center, y_center, width, height = pred_box.xyxyn[0] # YOLO format normalized bounding box
-                    annotations.append(f"0 {x_center} {y_center} {width} {height}")
-                    bounding_boxes_list.append(pred_box.xyxy[0].int().tolist()) # integer pixel format x1, y1, x2, y2
-            
+           
             # TEMP: draw bboxes
-            img_array = draw_image_masks(img_array, bounding_boxes_list)
+            #img_array = draw_image_masks(img_array, bounding_boxes_list)
 
             # Save the image untouched in the output folder if it has not been processed before
             output_image_path = os.path.join(images_folder, f'{base_image_name}_{d}_{idx}.png')
