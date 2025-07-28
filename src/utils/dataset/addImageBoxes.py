@@ -195,6 +195,74 @@ def compute_max_point_frames(point_coords, box_width, n_frames, n_mask_frames, t
                     max_mask_frame_array[j, :] = np.array([max(max_mask_frame_array[j, 0], frame_interval_0[1] + 1), min(max_mask_frame_array[j, 1], max_mask_frame_array[j, 1])], dtype='int32')
     return(min_mask_frame_array, max_mask_frame_array)
 
+# New function that will replace save_annotations...
+def generate_bboxes_and_masks(tif_path, csv_path, output_folder, box_width, num_frames, axis_indices, model_path, base_image_name, apply_sam_bboxes, apply_sam_points, num_frames_to_mask, gray_value=128, csv_separator=';'):
+    """Compute bounding boxes for YOLO training from a 3D image and a set of initial point annotations. 
+    In the following, initial annotations are denoted (xyz)i ; YOLO annotations are denoted (xywhn)
+    The 3D image is processed as a stack of 2D images, e.g. along the z axis.
+    Bounding boxes can be arbitrarily defined with fixed dimensions, e.g. 40 pixels width-height
+    Bounding boxes can also derived from a SAM assisted segmentation using (xyz)i as point prompts, or boxes surrounding (xyz)i as bounding boxes prompts.
+    Initial point annotations (xyz)i can be duplicated above and below the slice z, i.e. z-1, z+1, z-2 etc. The number of duplications (above + below) is defined by num_frames.
+    Once duplicated, the (xyz) annotations can be used directly as prompts for SAM segmentation and by the intermediate of bounding boxes.
+    Masks can be drawn in the images above and below the duplicated annotations to prevent parts of the forams to be visible but not annotated.
+
+    Args:
+        tif_path (string): path to the 3D image fille
+        csv_path (string): path to the (x,y,z)i initial annotations
+        output_folder (string): where to save the modified 2D images
+        box_width (_type_): _description_
+        num_frames (_type_): _description_
+        axis_indices (_type_): _description_
+        model_path (_type_): _description_
+        base_image_name (_type_): _description_
+        apply_sam_bboxes (_type_): _description_
+        apply_sam_points (_type_): _description_
+        num_frames_to_mask (_type_): _description_
+        gray_value (int, optional): _description_. Defaults to 128.
+        csv_separator (str, optional): _description_. Defaults to ';'.
+    """
+    direction_dict = {0:'z', 1:'y', 2:'x'}
+    draw_mask = bool(num_frames_to_mask > 1)
+    bgr_color = (gray_value, gray_value, gray_value)
+    
+    if apply_sam_bboxes or apply_sam_points:
+        sam_model = SAM(model_path)
+    
+    # Create the output folder and necessary subfolders
+    os.makedirs(output_folder, exist_ok=True)
+    images_folder = os.path.join(output_folder, "images")
+    labels_folder = os.path.join(output_folder, "labels")
+    os.makedirs(images_folder, exist_ok=True)
+    os.makedirs(labels_folder, exist_ok=True)
+
+    # Load CSV data
+    df = pd.read_csv(csv_path, delimiter=csv_separator)
+    xyz_annotations = df.to_numpy()[:, 1:]
+    n_xyz_annotations = xyz_annotations.shape[0]
+
+    # Load the TIFF file
+    tif_data = tiff.imread(tif_path)
+    tif_shape = tif_data.shape[:3]
+    
+    # Duplicate xyz annotations
+    for direction in axis_indices: # 0: z, 1: y, 2: x
+        d = direction_dict[direction]
+        print(f"Current direction : axis {d.upper()}")
+        label_frame = np.zeros([n_points, 3], dtype='int32')
+
+    # Compute the centers of the masks
+
+    # Generate xywhn bounding boxes
+
+
+    # Draw masks
+
+
+
+
+
+
+
 
 def save_images_and_annotations(tif_path, csv_path, output_folder, box_width, num_frames, axis_indices, model_path, base_image_name, apply_sam_bboxes, apply_sam_points, num_frames_to_mask, gray_value=128, csv_separator=';'):
     direction_dict = {0:'z', 1:'y', 2:'x'}
@@ -220,7 +288,14 @@ def save_images_and_annotations(tif_path, csv_path, output_folder, box_width, nu
     n_points = points.shape[0]
     if draw_mask:
         min_masked_frames, max_masked_frames = compute_max_point_frames(points, box_width, num_frames, num_frames_to_mask, tif_shape)
-
+    # TODO: change the principle to something more straightforward:
+    # - compute the positions of the duplicated xyz annotations and the /centers/ of the masks
+    # - For each image, get the xyz annotations and masks
+    # - compute the bounding boxes around the annotations, either with SAM or fixed dimension
+    # - for each bbox, copy a patch of the image, store it somewhere
+    # - draw the masks on the image
+    # - paste the patches from the bbox annotations in the image. Doing so will prevent bbox annotations being accidently covered by masks coming from other annotations.
+    # This is probably suboptimal as no intersection is computed between the masks and bbox annotations
     # For each direction
     for direction in axis_indices: # 0: z, 1: y, 2: x
         label_frame = np.zeros([n_points, 2], dtype='int32')
@@ -235,6 +310,7 @@ def save_images_and_annotations(tif_path, csv_path, output_folder, box_width, nu
         bbox_array[:, 1] = np.maximum(np.zeros(n_points), ax_point[:, 1] - box_width // 2)
         bbox_array[:, 2] = np.minimum(np.full([n_points], tif_shape[1]), ax_point[:, 0] + box_width // 2)
         bbox_array[:, 3] = np.minimum(np.full([n_points], tif_shape[2]), ax_point[:, 1] + box_width // 2)
+
         for idx in tqdm(range(tif_data.shape[direction]), desc="Processing images"):
             # Extract the slice along the specified direction
             img_array = np.take(tif_data, indices=idx, axis=direction).copy()
@@ -255,11 +331,10 @@ def save_images_and_annotations(tif_path, csv_path, output_folder, box_width, nu
                 a_max = min(axis_point[idx_row, 0] + box_width // 2, img_array.shape[1])
                 b_min = max(axis_point[idx_row, 1] - box_width // 2, 0)
                 b_max = min(axis_point[idx_row, 1] + box_width // 2, img_array.shape[0])
-                bounding_boxes.append([a_min, b_min, a_max, b_max]) #list
+                bounding_boxes.append([a_min, b_min, a_max, b_max])
             
             # Yolo format annotations
             annotations_xywhn = []
-            # TODO: create function "xyz2bbox" ?
             if apply_sam_bboxes:
                 results = apply_sam_model_bbox_list(img_array, bounding_boxes, sam_model)
             if apply_sam_points:
@@ -285,6 +360,7 @@ def save_images_and_annotations(tif_path, csv_path, output_folder, box_width, nu
            
             # TEMP: draw bboxes
             # Convert xywhn to xyxy
+            # TODO: create function ?
             bboxes_xyxy = []
             for bbox_xywhn in annotations_xywhn:
                 _, x_center_n, y_center_n, width_n, height_n = bbox_xywhn
@@ -305,7 +381,7 @@ def save_images_and_annotations(tif_path, csv_path, output_folder, box_width, nu
                 for bbox_xywhn in annotations_xywhn:
                     cls, x_center_n, y_center_n, width_n, height_n = bbox_xywhn
                     ann_file.write(f"{cls} {x_center_n} {y_center_n} {width_n} {height_n}\n")
-        # If necessary, draw black masks on the images
+        # If necessary, draw masks on the images
         if (draw_mask):
             print("------------------------------------")
             print(f"Direction : axis {d.upper()}")
