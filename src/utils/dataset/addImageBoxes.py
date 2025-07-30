@@ -242,32 +242,40 @@ def generate_bboxes_and_masks(tif_path, csv_path, output_folder, box_width, num_
 
     # Load the TIFF file
     tif_data = tiff.imread(tif_path)
-    tif_shape = tif_data.shape[:3] # 0: z, 1: y, 2: x
+    tif_shape = tif_data.shape # 0: z, 1: y, 2: x
     print("Tif shape: ", tif_shape)
-    img_shape = tif_shape.T[[0, 2]] = tif_shape.T[[2, 0]]  # 0: x, 1: y, 2: z
-    print("Tif shape: ", img_shape)
+    img_shape = (tif_shape[2], tif_shape[1], tif_shape[0])  # 0: x, 1: y, 2: z
+    print("Img dimensions: ", img_shape)
 
     # Duplicate xyz annotations
     for axis in axis_indices: # 0: x, 1: y, 2: z
         d = direction_dict[axis]
         print(f"Current direction : axis {d.upper()}, {axis_indices}")
-        xyz_annotations_extd = []
         # Generate blocks of duplicated annotations, append them to a new list
+        xyz_annotations_extd = []
+        print("xyz_annotations_init: ", xyz_annotations_init.shape)
         for annotation in xyz_annotations_init:
-            duplicated_annotation = np.repmat(annotation, num_frames, 1)
-            duplicated_annotation[:,axis] = annotation[axis] + np.arange(-num_frames//2, num_frames//2 + 1) # +1 pour avoir le même nombre de duplications avant et après
+            # Duplicate the current annotation, then replace the x, y, or z coordinate
+            duplicated_annotation = np.tile(annotation, (num_frames + 1, 1)) # +1 pour avoir le même nombre de duplications avant et après
+            duplicated_annotation[:,axis] = annotation[axis] + np.arange(-num_frames//2, num_frames//2 + 1) 
             # print("Annotation: ", annotation)
             # print("Duplicated: ", duplicated_annotation)
-            # print("Size: ", duplicated_annotation.shape)
+            #print("Size: ", duplicated_annotation.shape)
             xyz_annotations_extd.append(duplicated_annotation)
         # remove rows with out of bound values
-        print("Before: ", xyz_annotations_extd.shape)
-        mask = (xyz_annotations_extd[axis] < 0) or (xyz_annotations_extd[axis] > img_shape(axis))
-        xyz_annotations_extd[mask, :]
-        print("After: ", xyz_annotations_extd.shape)
+        #print("List length: ", len(xyz_annotations_extd))
+        #print(xyz_annotations_extd)
+        xyz_annotations_extd = np.vstack(xyz_annotations_extd)
+        #print("Before: ", xyz_annotations_extd.shape)
+        #print(xyz_annotations_extd)
+        mask = (xyz_annotations_extd[:,axis] >= 0) & (xyz_annotations_extd[:, axis] < img_shape[axis])
+        #print(mask)
+        xyz_annotations_extd = xyz_annotations_extd[mask, :]
+        #print("After: ", xyz_annotations_extd.shape)
+        #print(xyz_annotations_extd)
         #np.where(xyz_annotations_extd[axis] > image_shape[axis])
 
-    exit
+    exit()
 
     # Compute the centers of the masks
 
