@@ -246,24 +246,26 @@ def generate_bboxes_and_masks(tif_path, csv_path, output_folder, box_width, num_
     print("Image shape: ", tif_shape)
     
     # Duplicate xyz annotations
-    for direction in axis_indices: # 0: z, 1: y, 2: x
-        d = direction_dict[direction]
-        print(f"Current direction : axis {d.upper()}")
-        label_frame = np.zeros([n_xyz_annotations_init, 3], dtype='int32')
-
+    for axis in axis_indices: # 0: x, 1: y, 2: z
+        d = direction_dict[axis]
+        print(f"Current direction : axis {d.upper()}, {axis_indices}")
+        xyz_annotations_extd = []
+        # Generate blocks of duplicated annotations, append them to a new list
+        for annotation in xyz_annotations_init:
+            duplicated_annotation = np.repmat(annotation, num_frames, 1)
+            duplicated_annotation[:,axis] = annotation[axis] + np.arange(-num_frames//2, num_frames//2)
+            print("Annotation: ", annotation)
+            print("Duplicated: ", duplicated_annotation)
+            print("Size: ", duplicated_annotation.shape)
+        xyz_annotations_extd.append(duplicated_annotation)
+        # remove rows with out of bound values
+    exit
 
     # Compute the centers of the masks
 
     # Generate xywhn bounding boxes
 
-
     # Draw masks
-
-
-
-
-
-
 
 
 def save_images_and_annotations(tif_path, csv_path, output_folder, box_width, num_frames, axis_indices, model_path, base_image_name, apply_sam_bboxes, apply_sam_points, num_frames_to_mask, gray_value=128, csv_separator=';'):
@@ -429,5 +431,6 @@ if __name__ == "__main__":
     direction_dict = {'x':0, 'y':1, 'z':2} # Coherent with the xyz annotations array
     axis_name_list = args.axis + ['x', 'y', 'z']*int(len(args.axis) == 0)
     axis_index_list = [direction_dict[axis_name] for axis_name in axis_name_list if axis_name in direction_dict.keys()]
-    save_images_and_annotations(args.tif_path, args.csv_path, args.output_folder, args.box_width, args.num_frames, axis_index_list, args.model_path, args.base_image_name, args.apply_sam_bboxes, args.apply_sam_points, args.num_frames_to_mask, args.mask_color, args.csv_sep)
+    #save_images_and_annotations(args.tif_path, args.csv_path, args.output_folder, args.box_width, args.num_frames, axis_index_list, args.model_path, args.base_image_name, args.apply_sam_bboxes, args.apply_sam_points, args.num_frames_to_mask, args.mask_color, args.csv_sep)
+    generate_bboxes_and_masks(args.tif_path, args.csv_path, args.output_folder, args.box_width, args.num_frames, axis_index_list, args.model_path, args.base_image_name, args.apply_sam_bboxes, args.apply_sam_points, args.num_frames_to_mask, args.mask_color, args.csv_sep)
     print(f'Images and annotations saved in {args.output_folder}.')
