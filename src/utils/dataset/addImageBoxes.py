@@ -237,18 +237,20 @@ def generate_bboxes_and_masks(tif_path, csv_path, output_folder, box_width, num_
 
     # Load CSV data
     df = pd.read_csv(csv_path, delimiter=csv_separator)
-    xyz_annotations = df.to_numpy()[:, 1:]
-    n_xyz_annotations = xyz_annotations.shape[0]
+    xyz_annotations_init = df.to_numpy()[:, 1:]
+    n_xyz_annotations_init = xyz_annotations_init.shape[0]
 
     # Load the TIFF file
     tif_data = tiff.imread(tif_path)
     tif_shape = tif_data.shape[:3]
+    print("Image shape: ", tif_shape)
     
     # Duplicate xyz annotations
     for direction in axis_indices: # 0: z, 1: y, 2: x
         d = direction_dict[direction]
         print(f"Current direction : axis {d.upper()}")
-        label_frame = np.zeros([n_points, 3], dtype='int32')
+        label_frame = np.zeros([n_xyz_annotations_init, 3], dtype='int32')
+
 
     # Compute the centers of the masks
 
@@ -423,8 +425,9 @@ if __name__ == "__main__":
     parser.add_argument('--mask_color', default=128, type=int, help="Grayscale value used as mask color (default 128)")
     parser.add_argument('--csv_sep', default=';', type=str, help="CSV delimiter character (default \';\')")
     args = parser.parse_args()
-    direction_dict = {'z':0, 'y':1, 'x':2}
-    axis_name_list = args.axis + ['z', 'y', 'x']*int(len(args.axis) == 0)
+    #direction_dict = {'z':0, 'y':1, 'x':2}
+    direction_dict = {'x':0, 'y':1, 'z':2} # Coherent with the xyz annotations array
+    axis_name_list = args.axis + ['x', 'y', 'z']*int(len(args.axis) == 0)
     axis_index_list = [direction_dict[axis_name] for axis_name in axis_name_list if axis_name in direction_dict.keys()]
     save_images_and_annotations(args.tif_path, args.csv_path, args.output_folder, args.box_width, args.num_frames, axis_index_list, args.model_path, args.base_image_name, args.apply_sam_bboxes, args.apply_sam_points, args.num_frames_to_mask, args.mask_color, args.csv_sep)
     print(f'Images and annotations saved in {args.output_folder}.')
