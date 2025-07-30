@@ -242,9 +242,11 @@ def generate_bboxes_and_masks(tif_path, csv_path, output_folder, box_width, num_
 
     # Load the TIFF file
     tif_data = tiff.imread(tif_path)
-    tif_shape = tif_data.shape[:3]
-    print("Image shape: ", tif_shape)
-    
+    tif_shape = tif_data.shape[:3] # 0: z, 1: y, 2: x
+    print("Tif shape: ", tif_shape)
+    img_shape = tif_shape.T[[0, 2]] = A.T[[2, 0]]  # 0: x, 1: y, 2: z
+    print("Tif shape: ", img_shape)
+
     # Duplicate xyz annotations
     for axis in axis_indices: # 0: x, 1: y, 2: z
         d = direction_dict[axis]
@@ -253,12 +255,18 @@ def generate_bboxes_and_masks(tif_path, csv_path, output_folder, box_width, num_
         # Generate blocks of duplicated annotations, append them to a new list
         for annotation in xyz_annotations_init:
             duplicated_annotation = np.repmat(annotation, num_frames, 1)
-            duplicated_annotation[:,axis] = annotation[axis] + np.arange(-num_frames//2, num_frames//2)
-            print("Annotation: ", annotation)
-            print("Duplicated: ", duplicated_annotation)
-            print("Size: ", duplicated_annotation.shape)
-        xyz_annotations_extd.append(duplicated_annotation)
+            duplicated_annotation[:,axis] = annotation[axis] + np.arange(-num_frames//2, num_frames//2 + 1) # +1 pour avoir le même nombre de duplications avant et après
+            # print("Annotation: ", annotation)
+            # print("Duplicated: ", duplicated_annotation)
+            # print("Size: ", duplicated_annotation.shape)
+            xyz_annotations_extd.append(duplicated_annotation)
         # remove rows with out of bound values
+        print("Before: ", xyz_annotations_extd.shape)
+        mask = (xyz_annotations_extd[axis] < 0) or (xyz_annotations_extd[axis] > img_shape(axis))
+        xyz_annotations_extd[mask, :]
+        print("After: ", xyz_annotations_extd.shape)
+        #np.where(xyz_annotations_extd[axis] > image_shape[axis])
+
     exit
 
     # Compute the centers of the masks
