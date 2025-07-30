@@ -244,7 +244,7 @@ def generate_bboxes_and_masks(tif_path, csv_path, output_folder, box_width, num_
     tif_data = tiff.imread(tif_path)
     tif_shape = tif_data.shape[:3] # 0: z, 1: y, 2: x
     print("Tif shape: ", tif_shape)
-    img_shape = tif_shape.T[[0, 2]] = A.T[[2, 0]]  # 0: x, 1: y, 2: z
+    img_shape = tif_shape.T[[0, 2]] = tif_shape.T[[2, 0]]  # 0: x, 1: y, 2: z
     print("Tif shape: ", img_shape)
 
     # Duplicate xyz annotations
