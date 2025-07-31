@@ -196,7 +196,9 @@ def compute_max_point_frames(point_coords, box_width, n_frames, n_mask_frames, t
     return(min_mask_frame_array, max_mask_frame_array)
 
 # New function that will replace save_annotations...
-def generate_bboxes_and_masks(tif_path, csv_path, output_folder, box_width, num_frames, axis_indices, model_path, base_image_name, apply_sam_bboxes, apply_sam_points, num_frames_to_mask, gray_value=128, csv_separator=';'):
+def generate_bboxes_and_masks(tif_path, csv_path, output_folder, box_width, nb_dup_annotations, 
+                              axis_indices, model_path, base_image_name, apply_sam_bboxes, apply_sam_points, 
+                              nb_masks, gray_value=128, csv_separator=';'):
     """Compute bounding boxes for YOLO training from a 3D image and a set of initial point annotations. 
     In the following, initial annotations are denoted (xyz)i ; YOLO annotations are denoted (xywhn)
     The 3D image is processed as a stack of 2D images, e.g. along the z axis.
@@ -222,8 +224,9 @@ def generate_bboxes_and_masks(tif_path, csv_path, output_folder, box_width, num_
         csv_separator (str, optional): _description_. Defaults to ';'.
     """
     direction_dict = {0:'x', 1:'y', 2:'z'}
-    draw_mask = bool(num_frames_to_mask > 1)
+    draw_mask = bool(nb_masks > 1)
     bgr_color = (gray_value, gray_value, gray_value)
+    # TODO: check that all annotations are within the bounds of the image?
     
     if apply_sam_bboxes or apply_sam_points:
         sam_model = SAM(model_path)
@@ -238,13 +241,11 @@ def generate_bboxes_and_masks(tif_path, csv_path, output_folder, box_width, num_
     # Load CSV data
     df = pd.read_csv(csv_path, delimiter=csv_separator)
     xyz_annotations_init = df.to_numpy()[:, 1:]
-    n_xyz_annotations_init = xyz_annotations_init.shape[0]
 
-    # Load the TIFF file, reorder its dimensions to make coherent with the axis indices
+    # Load the TIFF file, reorder its dimensions to make them coherent with the annotations: zyx => xyz
     tif_data = tiff.imread(tif_path)
     tif_shape = tif_data.shape[:3] # 0: z, 1: y, 2: x
     print("Tif shape: ", tif_shape)
-    #img_shape = tif_shape.T[[0, 2]] = tif_shape.T[[2, 0]]  # 0: x, 1: y, 2: z
     img_shape = [tif_shape[2], tif_shape[1], tif_shape[0]] # 0: x, 1: y, 2: z
     print("Image Dimensions: ", img_shape)
 
@@ -255,17 +256,16 @@ def generate_bboxes_and_masks(tif_path, csv_path, output_folder, box_width, num_
         xyz_annotations_dup = []
         xyz_masks = []
         for xyz_annotation in xyz_annotations_init:
-            # Annotations: Copy xyz annotation, then update the coordinates. Ex.: z => z-2, z-1, z, z+1, z+2
-            xyz_annotation_duplicated = np.tile(xyz_annotation, (num_frames + 1, 1)) # +1 is meant for including the initial annotation. Ex.: z, z, z, z, z
-            relative_indices_duplicated_annotations = np.arange(-num_frames//2, num_frames//2 + 1) # Ex: -2, -1, 0, +1, +2
+            # Annotations: Copy xyz annotation, then update coordinates. Ex.: z => z-2, z-1, z, z+1, z+2
+            xyz_annotation_duplicated = np.tile(xyz_annotation, (nb_dup_annotations + 1, 1)) # +1 is meant for including the initial annotation. Ex.: z, z, z, z, z
+            relative_indices_duplicated_annotations = np.arange(-nb_dup_annotations//2, nb_dup_annotations//2 + 1) # Ex: -2, -1, 0, +1, +2
             xyz_annotation_duplicated[:,axis] = xyz_annotation[axis] + relative_indices_duplicated_annotations # Replace coordinates. Ex.: z-2, z-1, z, z+1, z+2
             xyz_annotations_dup.append(xyz_annotation_duplicated)
-            # Masks: Copy xyz annotation, then update the coordinates. Ex.: z =>  z-5, z-4, z-3, z+3, z+4, z+5
-            xyz_masks_current = np.tile(xyz_annotation, (num_frames_to_mask, 1)) # Ex.: z, z, z, z, z, z
-            relative_indices_frames_to_mask_half_range = np.arange(num_frames//2+1, (num_frames_to_mask+num_frames)//2+1) # Ex.: 3, 4, 5
+            # Masks: Copy xyz annotation, then update coordinates. Ex.: z =>  z-5, z-4, z-3, z+3, z+4, z+5
+            xyz_masks_current = np.tile(xyz_annotation, (nb_masks, 1)) # Ex.: z, z, z, z, z, z
+            relative_indices_frames_to_mask_half_range = np.arange(nb_dup_annotations//2+1, (nb_dup_annotations+nb_masks)//2+1) # Ex.: 3, 4, 5
             relative_indices_frames_to_mask = np.hstack((np.flip(-relative_indices_frames_to_mask_half_range), +relative_indices_frames_to_mask_half_range)) # Ex.: -5, -4, -3, +3, +4, +5
             xyz_masks_current[:,axis] = xyz_annotation[axis] + relative_indices_frames_to_mask # Ex.: z-5, z-4, z-3, z+3, z+4, z+5
-            print("xyz_masks_current: ", xyz_masks_current)
             xyz_masks.append(xyz_masks_current)
 
         # Remove rows with out of bound values (i.e. between 0 and the dimension along the current axis)
@@ -274,7 +274,12 @@ def generate_bboxes_and_masks(tif_path, csv_path, output_folder, box_width, num_
         xyz_masks = np.vstack(xyz_masks)
         xyz_masks = xyz_masks[(xyz_masks[:, axis] >= 0) & (xyz_masks[:, axis] < img_shape[axis])]
 
-        # Generate annotations, either points or bboxes
+        # Generate bboxes annotations: array[x, y, z] => array[x, y, w, h, z]
+        
+
+
+
+
 
         # Draw masks
 
