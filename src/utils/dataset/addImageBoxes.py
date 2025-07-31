@@ -221,7 +221,7 @@ def generate_bboxes_and_masks(tif_path, csv_path, output_folder, box_width, num_
         gray_value (int, optional): _description_. Defaults to 128.
         csv_separator (str, optional): _description_. Defaults to ';'.
     """
-    direction_dict = {0:'z', 1:'y', 2:'x'}
+    direction_dict = {0:'x', 1:'y', 2:'z'}
     draw_mask = bool(num_frames_to_mask > 1)
     bgr_color = (gray_value, gray_value, gray_value)
     
@@ -240,7 +240,7 @@ def generate_bboxes_and_masks(tif_path, csv_path, output_folder, box_width, num_
     xyz_annotations_init = df.to_numpy()[:, 1:]
     n_xyz_annotations_init = xyz_annotations_init.shape[0]
 
-    # Load the TIFF file
+    # Load the TIFF file, reorder its dimensions to make coherent with the axis indices
     tif_data = tiff.imread(tif_path)
     tif_shape = tif_data.shape[:3] # 0: z, 1: y, 2: x
     print("Tif shape: ", tif_shape)
@@ -248,26 +248,37 @@ def generate_bboxes_and_masks(tif_path, csv_path, output_folder, box_width, num_
     img_shape = [tif_shape[2], tif_shape[1], tif_shape[0]] # 0: x, 1: y, 2: z
     print("Image Dimensions: ", img_shape)
 
-    # Duplicate xyz annotations
+    # Duplicate xyz annotations and compute masks centers, 1 axis at a time
     for axis in axis_indices: # 0: x, 1: y, 2: z
         d = direction_dict[axis]
         print(f"Current direction : axis {d.upper()}, {axis_indices}")
-        # Generate blocks of duplicated annotations, append them to a new list
-        xyz_annotations_extd = []
+        xyz_annotations_dup = []
         xyz_masks = []
-        for annotation in xyz_annotations_init:
-            duplicated_annotation = np.repmat(annotation, (num_frames + 1, 1))
-            duplicated_annotation[:,axis] = annotation[axis] + np.arange(-num_frames//2, num_frames//2 + 1) # +1 pour avoir le même nombre de duplications avant et après
-            xyz_annotations_extd.append(duplicated_annotation)
+        for xyz_annotation in xyz_annotations_init:
+            # Annotations: Copy xyz annotation, then update the coordinates. Ex.: z => z-2, z-1, z, z+1, z+2
+            xyz_annotation_duplicated = np.tile(xyz_annotation, (num_frames + 1, 1)) # +1 is meant for including the initial annotation. Ex.: z, z, z, z, z
+            relative_indices_duplicated_annotations = np.arange(-num_frames//2, num_frames//2 + 1) # Ex: -2, -1, 0, +1, +2
+            xyz_annotation_duplicated[:,axis] = xyz_annotation[axis] + relative_indices_duplicated_annotations # Replace coordinates. Ex.: z-2, z-1, z, z+1, z+2
+            xyz_annotations_dup.append(xyz_annotation_duplicated)
+            # Masks: Copy xyz annotation, then update the coordinates. Ex.: z =>  z-5, z-4, z-3, z+3, z+4, z+5
+            xyz_masks_current = np.tile(xyz_annotation, (num_frames_to_mask, 1)) # Ex.: z, z, z, z, z, z
+            relative_indices_frames_to_mask_half_range = np.arange(num_frames//2+1, (num_frames_to_mask+num_frames)//2+1) # Ex.: 3, 4, 5
+            relative_indices_frames_to_mask = np.hstack((np.flip(-relative_indices_frames_to_mask_half_range), +relative_indices_frames_to_mask_half_range)) # Ex.: -5, -4, -3, +3, +4, +5
+            xyz_masks_current[:,axis] = xyz_annotation[axis] + relative_indices_frames_to_mask # Ex.: z-5, z-4, z-3, z+3, z+4, z+5
+            print("xyz_masks_current: ", xyz_masks_current)
+            xyz_masks.append(xyz_masks_current)
 
-            xyz_masks_for_current_annotation = np.repmat(annotation, (num_frames_to_mask, 1))
-# A FINIR ICI            xyz_masks_for_current_annotation[:,axis] = annotation[axis] + np.arange(-num_frames_to_mask//2, num_frames_to_mask//2)
+        # Remove rows with out of bound values (i.e. between 0 and the dimension along the current axis)
+        xyz_annotations_dup = np.vstack(xyz_annotations_dup) # Convert list to a nx3 array
+        xyz_annotations_dup = xyz_annotations_dup[(xyz_annotations_dup[:, axis] >= 0) & (xyz_annotations_dup[:, axis] < img_shape[axis])]
+        xyz_masks = np.vstack(xyz_masks)
+        xyz_masks = xyz_masks[(xyz_masks[:, axis] >= 0) & (xyz_masks[:, axis] < img_shape[axis])]
 
+        # Generate annotations, either points or bboxes
 
-        # remove rows with out of bound values
-        mask = (xyz_annotations_extd[axis] >= 0) | (xyz_annotations_extd[axis] < img_shape(axis))
-        xyz_annotations_extd = xyz_annotations_extd[mask, :]
-    
+        # Draw masks
+
+        # Redraw annotations
 
     exit()
 
