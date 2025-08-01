@@ -319,12 +319,15 @@ def generate_bboxes_and_masks(tif_path, csv_path, output_folder, box_width, nb_d
 
             #Draw masks on  current frame
             current_frame = draw_bboxes(current_frame, xyxy_annotations_bboxes, thickness=-1)
+            
             #TEMP: save frame as is
+            output_image_pathTEMP = os.path.join(images_folder, f'{base_image_name}_{d}_{idx}BeforeTEMP.png')
+            cv2.imwrite(output_image_pathTEMP, current_frame) # TEMP
             # Redraw patches located under the annotations bounding boxes over the current frame
-            #current_frame = 
+            current_frame[temp_copy_bboxes_content[:] != 0] = temp_copy_bboxes_content[temp_copy_bboxes_content[:] != 0]
             #TEMP: save frame with correction
-
-
+            output_image_pathTEMP = os.path.join(images_folder, f'{base_image_name}_{d}_{idx}AfterTEMP.png')
+            cv2.imwrite(output_image_pathTEMP, current_frame) # TEMP
 
             # Save the image untouched in the output folder if it has not been processed before
             output_image_path = os.path.join(images_folder, f'{base_image_name}_{d}_{idx}.png')
