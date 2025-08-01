@@ -195,7 +195,7 @@ def compute_max_point_frames(point_coords, box_width, n_frames, n_mask_frames, t
                     max_mask_frame_array[j, :] = np.array([max(max_mask_frame_array[j, 0], frame_interval_0[1] + 1), min(max_mask_frame_array[j, 1], max_mask_frame_array[j, 1])], dtype='int32')
     return(min_mask_frame_array, max_mask_frame_array)
 
-def draw_bboxes(image, bboxes, color=(255,128,0), thickness=-1):
+def draw_bboxes(image, bboxes, color=(128,128,0), thickness=-1):
     for bbox in bboxes:
         a_min, b_min, a_max, b_max = bbox
         cv2.rectangle(image, (a_min, b_min), (a_max, b_max), color=tuple(color), thickness=thickness)
@@ -305,14 +305,32 @@ def generate_bboxes_and_masks(tif_path, csv_path, output_folder, box_width, nb_d
             for xyxy_annotation_bbox in xyxy_annotations_bboxes:
                 temp_copy_bboxes_content[xyxy_annotation_bbox[1]:xyxy_annotation_bbox[3], xyxy_annotation_bbox[0]:xyxy_annotation_bbox[2]] = current_frame[xyxy_annotation_bbox[1]:xyxy_annotation_bbox[3], xyxy_annotation_bbox[0]:xyxy_annotation_bbox[2]]
 
-            #TEMP: draw boxes on  current frame, then save it
+            # Draw masks!
+            xyz_current_masks = xyz_masks[xyz_masks[:,axis] == idx] # Get masks centers for the current frame
+            xyz_current_masks = np.delete(xyz_current_masks, axis, axis=1) # Remove column whose index corresponds to the current axis. E.g.: x1,y1,z ; x2,y2,z... => x1,y1 ; x2,y2...
+            xyxy_masks = []            
+            for xyz_mask in xyz_current_masks:
+                a_min = max(xyz_mask[0] - box_width // 2, 0)
+                a_max = min(xyz_mask[0] + box_width // 2, current_frame.shape[0])
+                b_min = max(xyz_mask[1] - box_width // 2, 0)
+                b_max = min(xyz_mask[1] + box_width // 2, current_frame.shape[1])
+                xyxy_masks.append([a_min, b_min, a_max, b_max]) # upper left corner, lower right corner
+            xyxy_masks = np.uint32(xyxy_masks)
+
+            #Draw masks on  current frame
             current_frame = draw_bboxes(current_frame, xyxy_annotations_bboxes, thickness=-1)
+            #TEMP: save frame as is
+            # Redraw patches located under the annotations bounding boxes over the current frame
+            #current_frame = 
+            #TEMP: save frame with correction
+
+
 
             # Save the image untouched in the output folder if it has not been processed before
             output_image_path = os.path.join(images_folder, f'{base_image_name}_{d}_{idx}.png')
-            output_image_pathTEMP = os.path.join(images_folder, f'{base_image_name}_{d}_{idx}TEMP.png')
+            #output_image_pathTEMP = os.path.join(images_folder, f'{base_image_name}_{d}_{idx}TEMP.png')
             cv2.imwrite(output_image_path, current_frame)
-            cv2.imwrite(output_image_pathTEMP, temp_copy_bboxes_content) # TEMP
+            #cv2.imwrite(output_image_pathTEMP, temp_copy_bboxes_content) # TEMP
 
             if idx >= 4:
                 exit()
