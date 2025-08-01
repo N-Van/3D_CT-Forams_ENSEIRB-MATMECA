@@ -195,11 +195,7 @@ def compute_max_point_frames(point_coords, box_width, n_frames, n_mask_frames, t
                     max_mask_frame_array[j, :] = np.array([max(max_mask_frame_array[j, 0], frame_interval_0[1] + 1), min(max_mask_frame_array[j, 1], max_mask_frame_array[j, 1])], dtype='int32')
     return(min_mask_frame_array, max_mask_frame_array)
 
-def draw_bboxes(image, bboxes, color=(255,128,0), fill):
-    if fill: 
-        thickness = -1
-    else: 
-        thickness = 2
+def draw_bboxes(image, bboxes, color=(255,128,0), thickness=-1):
     for bbox in bboxes:
         a_min, b_min, a_max, b_max = bbox
         cv2.rectangle(image, (a_min, b_min), (a_max, b_max), color=tuple(color), thickness=thickness)
@@ -265,7 +261,7 @@ def generate_bboxes_and_masks(tif_path, csv_path, output_folder, box_width, nb_d
     relative_indices_masks = np.hstack((np.flip(-relative_indices_masks_half_range), relative_indices_masks_half_range)) # Ex.: -5, -4, -3, +3, +4, +5
     for axis in axis_indices: # 0: x, 1: y, 2: z
         d = direction_dict[axis]
-        print(f"Current direction : axis {d.upper()}, {axis_indices}")
+        print(f"Current direction : axis {d.upper()}, {axis}")
         xyz_annotations_dup = []
         xyz_masks = []
         for xyz_annotation in xyz_annotations_init:
@@ -287,33 +283,38 @@ def generate_bboxes_and_masks(tif_path, csv_path, output_folder, box_width, nb_d
         # print(xyz_annotations_dup[:20,:])
         # Loop over the frames along the current axis
         for idx in tqdm(range(img_shape[axis]), desc="Processing images"):
-            # Extract the frame. By convention we have 0=x, 1=y, 2=z => need to permute x and z axis of the original data
-            current_frame = np.take(np.permute_dims((tif_data), (2,1,0)), indices=idx, axis=axis).copy()
-            # Convert to BGR format if necessary # Not sure it is necessary
-            #if current_frame.ndim == 2:  # Grayscale
-            #    current_frame = cv2.cvtColor(current_frame, cv2.COLOR_GRAY2BGR)
+            print("--------------------------------------------")            
+            # Extract the frame. By convention we have 0=x, 1=y, 2=z ; but numpy has 0=z, 1=y, 2=x => permute 2 and 0 for selecting the frame
+            current_frame = np.take(tif_data, indices=idx, axis=abs(axis-2)).copy()
+
             xyz_current_annotations = xyz_annotations_dup[xyz_annotations_dup[:,axis] == idx] # Get annotations for the current frame
             xyz_current_annotations = np.delete(xyz_current_annotations, axis, axis=1) # Remove column whose index corresponds to the current axis. E.g.: x1,y1,z ; x2,y2,z... => x1,y1 ; x2,y2...
 
-            # Generate bounding boxes
+            # Generate bounding boxes #
             xyxy_annotations_bboxes = []            
-            # for xyz_annotation in xyz_current_annotations:
-            #     a_min = max(xyz_current_annotations[0] - box_width // 2, 0)
-            #     a_max = min(xyz_current_annotations[0] + box_width // 2, current_frame.shape[0])
-            #     b_min = max(xyz_current_annotations[1] - box_width // 2, 0)
-            #     b_max = min(xyz_current_annotations[1] + box_width // 2, current_frame.shape[1])
-            #     xyxy_annotations_bboxes.append([a_min, b_min, a_max, b_max])
-            # TOCHECK: bounds current_frame.shape...
-            print(xyxy_annotations_bboxes)
+            for xyz_annotation in xyz_current_annotations:
+                a_min = max(xyz_annotation[0] - box_width // 2, 0)
+                a_max = min(xyz_annotation[0] + box_width // 2, current_frame.shape[0])
+                b_min = max(xyz_annotation[1] - box_width // 2, 0)
+                b_max = min(xyz_annotation[1] + box_width // 2, current_frame.shape[1])
+                xyxy_annotations_bboxes.append([a_min, b_min, a_max, b_max]) # upper left corner, lower right corner
+            xyxy_annotations_bboxes = np.uint32(xyxy_annotations_bboxes)
+
+            # Copy patches of the image before drawing the masks
+            temp_copy_bboxes_content = np.zeros(current_frame.shape)
+            for xyxy_annotation_bbox in xyxy_annotations_bboxes:
+                temp_copy_bboxes_content[xyxy_annotation_bbox[1]:xyxy_annotation_bbox[3], xyxy_annotation_bbox[0]:xyxy_annotation_bbox[2]] = current_frame[xyxy_annotation_bbox[1]:xyxy_annotation_bbox[3], xyxy_annotation_bbox[0]:xyxy_annotation_bbox[2]]
 
             #TEMP: draw boxes on  current frame, then save it
-            current_frame = draw_bboxes(current_frame, xyxy_annotations_bboxes, fill=False)
-            
-            # Copy patches of the image before drawing the masks
-            for xyxy_annotation_bbox in xyxy_annotations_bboxes:
+            current_frame = draw_bboxes(current_frame, xyxy_annotations_bboxes, thickness=-1)
 
+            # Save the image untouched in the output folder if it has not been processed before
+            output_image_path = os.path.join(images_folder, f'{base_image_name}_{d}_{idx}.png')
+            output_image_pathTEMP = os.path.join(images_folder, f'{base_image_name}_{d}_{idx}TEMP.png')
+            cv2.imwrite(output_image_path, current_frame)
+            cv2.imwrite(output_image_pathTEMP, temp_copy_bboxes_content) # TEMP
 
-            if idx >= 6:
+            if idx >= 4:
                 exit()
 
         # Draw masks
