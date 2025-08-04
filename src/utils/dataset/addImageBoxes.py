@@ -316,8 +316,6 @@ def generate_bboxes_and_masks(tif_path, csv_path, output_folder, box_width, nb_d
                 b_max = min(xyz_mask[1] + box_width // 2, current_frame.shape[1])
                 xyxy_masks.append([a_min, b_min, a_max, b_max]) # upper left corner, lower right corner
             xyxy_masks = np.uint32(xyxy_masks)
-
-            #Draw masks on  current frame
             current_frame = draw_bboxes(current_frame, xyxy_annotations_bboxes, thickness=-1)
             
             #TEMP: save frame as is
@@ -329,7 +327,7 @@ def generate_bboxes_and_masks(tif_path, csv_path, output_folder, box_width, nb_d
             output_image_pathTEMP = os.path.join(images_folder, f'{base_image_name}_{d}_{idx}AfterTEMP.png')
             cv2.imwrite(output_image_pathTEMP, current_frame) # TEMP
 
-            # Save the image untouched in the output folder if it has not been processed before
+            # Save the image
             output_image_path = os.path.join(images_folder, f'{base_image_name}_{d}_{idx}.png')
             #output_image_pathTEMP = os.path.join(images_folder, f'{base_image_name}_{d}_{idx}TEMP.png')
             cv2.imwrite(output_image_path, current_frame)
