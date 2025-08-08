@@ -199,7 +199,17 @@ def draw_bboxes(image, bboxes, color=(128,128,0), thickness=-1):
     for bbox in bboxes:
         a_min, b_min, a_max, b_max = bbox
         cv2.rectangle(image, (a_min, b_min), (a_max, b_max), color=tuple(color), thickness=thickness)
-    return(image)    
+    return(image)
+
+def bboxes_from_2D_point_annotations(point_annotations: np.ndarray[tuple[int,int], np.dtype[np.uint32]], box_width: int, current_frame_shape: tuple[int,int]):
+    xyxy_annotations_bboxes: list[tuple[int, ...]] = []
+    for xyz_annotation in point_annotations:
+        a_min = int(max(xyz_annotation[0] - box_width // 2, 0))
+        a_max = int(min(xyz_annotation[0] + box_width // 2, current_frame_shape[0]))
+        b_min = int(max(xyz_annotation[1] - box_width // 2, 0))
+        b_max = int(min(xyz_annotation[1] + box_width // 2, current_frame_shape[1]))
+        xyxy_annotations_bboxes.append((a_min, b_min, a_max, b_max)) # upper left corner, lower right corner
+    return(xyxy_annotations_bboxes)
 
 # New function that will replace save_annotations...
 def generate_bboxes_and_masks(tif_path, csv_path, output_folder, box_width, nb_dup_annotations, 
@@ -291,14 +301,7 @@ def generate_bboxes_and_masks(tif_path, csv_path, output_folder, box_width, nb_d
             xyz_current_annotations = np.delete(xyz_current_annotations, axis, axis=1) # Remove column whose index corresponds to the current axis. E.g.: x1,y1,z ; x2,y2,z... => x1,y1 ; x2,y2...
 
             # Generate bounding boxes #
-            xyxy_annotations_bboxes = []            
-            for xyz_annotation in xyz_current_annotations:
-                a_min = max(xyz_annotation[0] - box_width // 2, 0)
-                a_max = min(xyz_annotation[0] + box_width // 2, current_frame.shape[0])
-                b_min = max(xyz_annotation[1] - box_width // 2, 0)
-                b_max = min(xyz_annotation[1] + box_width // 2, current_frame.shape[1])
-                xyxy_annotations_bboxes.append([a_min, b_min, a_max, b_max]) # upper left corner, lower right corner
-            xyxy_annotations_bboxes = np.uint32(xyxy_annotations_bboxes)
+            xyxy_annotations_bboxes = bboxes_from_2D_point_annotations(xyz_current_annotations, box_width, current_frame.shape())
 
             # Copy patches of the image before drawing the masks
             temp_copy_bboxes_content = np.zeros(current_frame.shape)
@@ -308,14 +311,7 @@ def generate_bboxes_and_masks(tif_path, csv_path, output_folder, box_width, nb_d
             # Draw masks!
             xyz_current_masks = xyz_masks[xyz_masks[:,axis] == idx] # Get masks centers for the current frame
             xyz_current_masks = np.delete(xyz_current_masks, axis, axis=1) # Remove column whose index corresponds to the current axis. E.g.: x1,y1,z ; x2,y2,z... => x1,y1 ; x2,y2...
-            xyxy_masks = []            
-            for xyz_mask in xyz_current_masks:
-                a_min = max(xyz_mask[0] - box_width // 2, 0)
-                a_max = min(xyz_mask[0] + box_width // 2, current_frame.shape[0])
-                b_min = max(xyz_mask[1] - box_width // 2, 0)
-                b_max = min(xyz_mask[1] + box_width // 2, current_frame.shape[1])
-                xyxy_masks.append([a_min, b_min, a_max, b_max]) # upper left corner, lower right corner
-            xyxy_masks = np.uint32(xyxy_masks)
+            xyxy_masks = bboxes_from_2D_point_annotations(xyz_current_masks, box_width, current_frame.shape())
             current_frame = draw_bboxes(current_frame, xyxy_annotations_bboxes, thickness=-1)
             
             #TEMP: save frame as is
@@ -425,7 +421,7 @@ def save_images_and_annotations(tif_path, csv_path, output_folder, box_width, nu
                     x_center = (bbox[0] + bbox[2]) // 2
                     y_center = (bbox[1] + bbox[3]) // 2
                     centers.append([x_center, y_center])
-                results = apply_sam_model_point_list(img_array, centers, sam_model)
+                results:list = apply_sam_model_point_list(img_array, centers, sam_model)
             if apply_sam_bboxes or apply_sam_points:
                 for pred_box in results[0].boxes:# Results est une liste, avec un élément par image (donc 1 element dans notre cas)
                     x_center, y_center, width, height = pred_box.xywhn[0] # YOLO format normalized bounding box
@@ -438,7 +434,7 @@ def save_images_and_annotations(tif_path, csv_path, output_folder, box_width, nu
                     width = (bbox[2] - bbox[0]) / img_array.shape[1]
                     height = (bbox[3] - bbox[1]) / img_array.shape[0]
                     annotations_xywhn.append([0, x_center, y_center, width, height])
-           
+
             # TEMP: draw bboxes
             # Convert xywhn to xyxy
             # TODO: create function ?
