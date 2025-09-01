@@ -341,8 +341,8 @@ def generate_bboxes_and_masks(tif_path, csv_path, output_folder, box_width, nb_d
             cv2.imwrite(output_image_path, current_frame)
             
             # TEMP
-            if idx >= 4:
-                exit()
+#            if idx >= 4:
+#                exit()
 
     exit()
 
