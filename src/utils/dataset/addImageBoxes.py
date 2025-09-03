@@ -234,23 +234,23 @@ def generate_bboxes_and_masks(tif_path, csv_path, output_folder, box_width, nb_d
     Bounding boxes can be arbitrarily defined with fixed dimensions, e.g. 40 pixels width-height
     Bounding boxes can also derived from a SAM assisted segmentation using (xyz)i as point prompts, or boxes surrounding (xyz)i as bounding boxes prompts.
     Initial point annotations (xyz)i can be duplicated above and below the slice z, i.e. z-1, z+1, z-2 etc. The number of duplications (above + below) is defined by num_frames.
-    Once duplicated, the (xyz) annotations can be used directly as prompts for SAM segmentation and by the intermediate of bounding boxes.
+    Once duplicated, the (xyz) annotations can be used directly as prompts for SAM segmentation or by the intermediate of bounding boxes.
     Masks can be drawn in the images above and below the duplicated annotations to prevent parts of the forams to be visible but not annotated.
 
     Args:
-        tif_path (string): path to the 3D image fille
-        csv_path (string): path to the (x,y,z)i initial annotations
+        tif_path (string): path to the 3D image file
+        csv_path (string): path to the (x,y,z)i ground truth annotations
         output_folder (string): where to save the modified 2D images
-        box_width (_type_): _description_
-        num_frames (_type_): _description_
-        axis_indices (_type_): _description_
-        model_path (_type_): _description_
-        base_image_name (_type_): _description_
-        apply_sam_bboxes (_type_): _description_
-        apply_sam_points (_type_): _description_
-        num_frames_to_mask (_type_): _description_
-        gray_value (int, optional): _description_. Defaults to 128.
-        csv_separator (str, optional): _description_. Defaults to ';'.
+        box_width (int): width of the bounding box centered on the ground truth annotations
+        nb_dup_annotations (int): number of annotations duplicated before and after the ground truth annotation
+        axis_indices (int): indices of the axes to prcess (0:x; 1:y; 2:z)
+        model_path (string): path to the SAM model
+        base_image_name (string): prefix for the output image
+        apply_sam_bboxes (boolean): segment the foram based on the bounding box centered on the annotation
+        apply_sam_points (boolean): segment the foram based on the point annotation
+        nb_masks (int): number of masks that will be drawn before and after the duplicated annotations
+        gray_value (int, optional): color of the masks. Defaults to 128.
+        csv_separator (str, optional): Defaults to ';'.
     """
     direction_dict = {0:'x', 1:'y', 2:'z'}
     draw_mask = bool(nb_masks > 1)
@@ -314,7 +314,7 @@ def generate_bboxes_and_masks(tif_path, csv_path, output_folder, box_width, nb_d
             xyz_current_annotations = np.delete(xyz_current_annotations, axis, axis=1) # Remove column whose index corresponds to the current axis. E.g.: x1,y1,z ; x2,y2,z... => x1,y1 ; x2,y2...
 
             # Generate annotations bounding boxes
-            xyxy_annotations_bboxes = bboxes_from_2D_point_annotations(xyz_current_annotations, box_width, current_frame.shape())
+            xyxy_annotations_bboxes = bboxes_from_2D_point_annotations(xyz_current_annotations, box_width, current_frame.shape)
 
             # Copy patches of the image before drawing the masks
             temp_copy_bboxes_content = np.zeros(current_frame.shape)
@@ -324,16 +324,16 @@ def generate_bboxes_and_masks(tif_path, csv_path, output_folder, box_width, nb_d
             # Draw masks!
             xyz_current_masks = xyz_masks[xyz_masks[:,axis] == idx] # Get masks centers for the current frame
             xyz_current_masks = np.delete(xyz_current_masks, axis, axis=1) # Remove column whose index corresponds to the current axis. E.g.: x1,y1,z ; x2,y2,z... => x1,y1 ; x2,y2...
-            xyxy_masks = bboxes_from_2D_point_annotations(xyz_current_masks, box_width, current_frame.shape())
+            xyxy_masks = bboxes_from_2D_point_annotations(xyz_current_masks, box_width, current_frame.shape)
             current_frame = draw_bboxes(current_frame, xyxy_annotations_bboxes, thickness=-1)
             
             #TEMP: save frame as is
-            output_image_pathTEMP = os.path.join(images_folder, f'{base_image_name}_{d}_{idx}BeforeTEMP.png')
+            output_image_pathTEMP = os.path.join(images_folder, f'{base_image_name}_{d}_{idx}withmasksTEMP.png')
             cv2.imwrite(output_image_pathTEMP, current_frame) # TEMP
-            # Redraw patches located in the annotations boxes
+            # paste patches located in the annotations boxes
             current_frame[temp_copy_bboxes_content[:] != 0] = temp_copy_bboxes_content[temp_copy_bboxes_content[:] != 0]
             #TEMP: save frame with correction
-            output_image_pathTEMP = os.path.join(images_folder, f'{base_image_name}_{d}_{idx}AfterTEMP.png')
+            output_image_pathTEMP = os.path.join(images_folder, f'{base_image_name}_{d}_{idx}redrawpatchesTEMP.png')
             cv2.imwrite(output_image_pathTEMP, current_frame) # TEMP
 
             # Save the image
@@ -341,8 +341,8 @@ def generate_bboxes_and_masks(tif_path, csv_path, output_folder, box_width, nb_d
             cv2.imwrite(output_image_path, current_frame)
             
             # TEMP
-#            if idx >= 4:
-#                exit()
+            if idx >= 10:
+                exit()
 
     exit()
 
