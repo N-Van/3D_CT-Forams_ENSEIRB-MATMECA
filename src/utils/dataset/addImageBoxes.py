@@ -6,7 +6,7 @@ import tifffile as tiff
 import pandas as pd
 
 from ultralytics import SAM
-from tqdm import tqdm
+from tqdm import tqdm, trange
 
 def draw_image_masks(image, bboxes, bgr_color=(255,128,0)):
     for bbox in bboxes:
@@ -15,16 +15,15 @@ def draw_image_masks(image, bboxes, bgr_color=(255,128,0)):
     return(image)
 
 # Apply SAM on an image with a /list/ of points. Functional, but doesn't provide good results (masks tend to overflow outside the forams)
-def apply_sam_model_point_list(image, points, sam_model):
+def apply_sam_point_list(image, points:list, sam_model):
     labels = [1] * len(points) # label 1 means that point prompts are located inside the objects to segment (positive prompt)
     results = sam_model.predict(image, stream=False, points=points, labels=labels, imgsz = 1024)
     return results
 
 # Apply SAM on an image with a /list/ of bounding boxes
-def apply_sam_model_bbox_list(image, bboxes, sam_model):
+def apply_sam_bbox_list(image, bboxes:list, sam_model):
     results = sam_model.predict(image, stream=False, bboxes=bboxes, imgsz = 1024)
     return results
-
 
 def rectangle_intersection(bbox_1, bbox_2):
     if ((((bbox_2[0,0] <= bbox_1[0,0] <= bbox_2[1,0]) and (bbox_2[0,1] <= bbox_1[0,1] <= bbox_2[1,1])) or ((bbox_1[0,0] <= bbox_2[0,0] <= bbox_1[1,0]) and (bbox_1[0,1] <= bbox_2[0,1] <= bbox_1[1,1]))) or
@@ -33,7 +32,6 @@ def rectangle_intersection(bbox_1, bbox_2):
         (((bbox_2[0,0] <= bbox_1[1,0] <= bbox_2[1,0]) and (bbox_2[0,1] <= bbox_1[0,1] <= bbox_2[1,1])) or ((bbox_1[0,0] <= bbox_2[1,0] <= bbox_1[1,0]) and (bbox_1[0,1] <= bbox_2[0,1] <= bbox_1[1,1])))):
         return(True)
     return(False)
-
 
 def compute_max_point_frames2(point_coords, box_width, n_frames, n_mask_frames, tif_shape, mask_direction='z'):
     direction_dict = {'x':0, 'y':1, 'z':2}
@@ -201,27 +199,27 @@ def draw_bboxes(image, bboxes, color=(128,128,0), thickness=-1):
         cv2.rectangle(image, (a_min, b_min), (a_max, b_max), color=tuple(color), thickness=thickness)
     return(image)
 
-def bboxes_from_2D_point_annotations(point_annotations: np.ndarray[tuple[int,int], np.dtype[np.uint32]], box_width: int, current_frame_shape: tuple[int,int]):
+def bboxes_from_2D_point_annotations(point_annotations: list[list[int]], box_width: int, current_frame_shape: tuple[int,int]):
     """
     Generate bounding boxes from 2D point annotations.
     Args:
-        point_annotations (np.ndarray[tuple[int, int], np.dtype[np.uint32]]): 
+        point_annotations (list[list[int]]): 
             Array of 2D point annotations, where each annotation is a tuple (x, y).
         box_width (int): 
             The width (and height) of the square bounding box to generate around each point.
         current_frame_shape (tuple[int, int]): 
             The shape of the current frame as (height, width), used to clip bounding boxes within image boundaries.
     Returns:
-        list[tuple[int, ...]]: 
-            A list of bounding boxes in (xmin, ymin, xmax, ymax) format for each point annotation.
+        list[list[int, ...]]: 
+            A list of bounding boxes in [xmin, ymin, xmax, ymax] format for each point annotation.
     """
-    xyxy_annotations_bboxes: list[tuple[int, ...]] = []
+    xyxy_annotations_bboxes: list[list[int]] = []
     for xyz_annotation in point_annotations:
         a_min = int(max(xyz_annotation[0] - box_width // 2, 0))
         a_max = int(min(xyz_annotation[0] + box_width // 2, current_frame_shape[0]))
         b_min = int(max(xyz_annotation[1] - box_width // 2, 0))
         b_max = int(min(xyz_annotation[1] + box_width // 2, current_frame_shape[1]))
-        xyxy_annotations_bboxes.append((a_min, b_min, a_max, b_max)) # upper left corner, lower right corner
+        xyxy_annotations_bboxes.append([a_min, b_min, a_max, b_max]) # upper left corner, lower right corner
     return(xyxy_annotations_bboxes)
 
 # New function that will replace save_annotations...
@@ -259,6 +257,7 @@ def generate_bboxes_and_masks(tif_path, csv_path, output_folder, box_width, nb_d
     
     if apply_sam_bboxes or apply_sam_points:
         sam_model = SAM(model_path)
+        print("MODELE ", type(sam_model))
     
     # Create the output folder and necessary subfolders
     os.makedirs(output_folder, exist_ok=True)
@@ -273,10 +272,10 @@ def generate_bboxes_and_masks(tif_path, csv_path, output_folder, box_width, nb_d
 
     # Load the TIFF file, reorder its dimensions to make them coherent with the annotations: zyx => xyz
     tif_data = tiff.imread(tif_path) 
-    tif_shape = tif_data.shape # plane, row, column
+    tif_shape: tuple = tif_data.shape # plane, row, column
     print("Tif shape (z, y, x): ", tif_shape)
-    img_shape = [tif_shape[2], tif_shape[1], tif_shape[0]] # 0: x, 1: y, 2: z
-    print("Image Dimensions (x, y, z): ", img_shape)
+    img_shape:np.ndarray = [tif_shape[2], tif_shape[1], tif_shape[0]] # 0: x, 1: y, 2: z
+    print("Image Dimensions [x, y, z]: ", img_shape)
 
     # Duplicate xyz annotations and compute masks centers, 1 axis at a time
     relative_indices_annotations = np.arange(-nb_dup_annotations//2, nb_dup_annotations//2 + 1) # Ex: -2, -1, 0, +1, +2
@@ -304,45 +303,62 @@ def generate_bboxes_and_masks(tif_path, csv_path, output_folder, box_width, nb_d
         xyz_masks = xyz_masks[(xyz_masks[:, axis] >= 0) & (xyz_masks[:, axis] < img_shape[axis])]
 
         # Loop over the frames along the current axis
-        for idx in tqdm(range(img_shape[axis]), desc="Processing images"):
-            print("--------------------------------------------")            
+        for idx in trange((img_shape[axis]), desc="Processing images"):
             # Extract current frame. By convention we have 0=x, 1=y, 2=z ; but numpy has 0=z, 1=y, 2=x => permute 2 and 0 for selecting the frame
-            current_frame = np.take(tif_data, indices=idx, axis=abs(axis-2)).copy()
+            frame = np.take(tif_data, indices=idx, axis=abs(axis-2)).copy()
+            # SAM expects color image
+            frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR) #W, H, C
 
-            # Get annotations for the current frame
-            xyz_current_annotations = xyz_annotations_dup[xyz_annotations_dup[:,axis] == idx] 
-            xyz_current_annotations = np.delete(xyz_current_annotations, axis, axis=1) # Remove column whose index corresponds to the current axis. E.g.: x1,y1,z ; x2,y2,z... => x1,y1 ; x2,y2...
+            # Get ground truth annotations
+            xyz_current_annotations:np.ndarray = xyz_annotations_dup[xyz_annotations_dup[:,axis] == idx]
+            if xyz_current_annotations.shape[0] == 0:
+                continue
+            xy_current_annotations:list[list[int]] = np.delete(xyz_current_annotations, axis, axis=1).tolist() # Remove column whose index corresponds to the current axis. E.g.: x1,y1,z ; x2,y2,z... => x1,y1 ; x2,y2...
 
             # Generate annotations bounding boxes
-            xyxy_annotations_bboxes = bboxes_from_2D_point_annotations(xyz_current_annotations, box_width, current_frame.shape)
+            xyxy_annotations_bboxes:list[list[int]] = bboxes_from_2D_point_annotations(xy_current_annotations, box_width, frame.shape)
+
+            # Yolo format annotations (xywhn)
+            # TODO: arrange the conditional tests
+            xywhn_annotations = []
+            if apply_sam_bboxes:
+                sam_results:list = apply_sam_bbox_list(frame, xyxy_annotations_bboxes, sam_model)
+            if apply_sam_points:
+                sam_results:list = apply_sam_point_list(frame, xy_current_annotations, sam_model)
+                #TODO : ignore predicted masks whose size exceeds the bounding box?
+            if apply_sam_bboxes or apply_sam_points:
+                for pred_box in sam_results[0].boxes: # Results is a list, with 1 element/image (i.e. 1 element in our case)
+                    x_center, y_center, width, height = pred_box.xywhn[0] # YOLO format normalized bounding box is already stored in SAM results
+                    xywhn_annotations.append([0, x_center, y_center, width, height]) #TOCHECK: what is the 0 for at line start?
+            else:
+                for bbox in xyxy_annotations_bboxes:
+                    x_center = (bbox[0] + bbox[2]) / (2 * frame.shape[1])
+                    y_center = (bbox[1] + bbox[3]) / (2 * frame.shape[0])
+                    width = (bbox[2] - bbox[0]) / frame.shape[1]
+                    height = (bbox[3] - bbox[1]) / frame.shape[0]
+                    xywhn_annotations.append([0, x_center, y_center, width, height])
 
             # Copy patches of the image before drawing the masks
-            temp_copy_bboxes_content = np.zeros(current_frame.shape)
+            temp_copy_bboxes_content = np.zeros(frame.shape)
             for xyxy_annotation_bbox in xyxy_annotations_bboxes:
-                temp_copy_bboxes_content[xyxy_annotation_bbox[1]:xyxy_annotation_bbox[3], xyxy_annotation_bbox[0]:xyxy_annotation_bbox[2]] = current_frame[xyxy_annotation_bbox[1]:xyxy_annotation_bbox[3], xyxy_annotation_bbox[0]:xyxy_annotation_bbox[2]]
+                temp_copy_bboxes_content[xyxy_annotation_bbox[1]:xyxy_annotation_bbox[3]+1, xyxy_annotation_bbox[0]:xyxy_annotation_bbox[2]+1] = frame[xyxy_annotation_bbox[1]:xyxy_annotation_bbox[3]+1, xyxy_annotation_bbox[0]:xyxy_annotation_bbox[2]+1]
 
             # Draw masks!
             xyz_current_masks = xyz_masks[xyz_masks[:,axis] == idx] # Get masks centers for the current frame
             xyz_current_masks = np.delete(xyz_current_masks, axis, axis=1) # Remove column whose index corresponds to the current axis. E.g.: x1,y1,z ; x2,y2,z... => x1,y1 ; x2,y2...
-            xyxy_masks = bboxes_from_2D_point_annotations(xyz_current_masks, box_width, current_frame.shape)
-            current_frame = draw_bboxes(current_frame, xyxy_annotations_bboxes, thickness=-1)
+            xyxy_masks = bboxes_from_2D_point_annotations(xyz_current_masks, box_width, frame.shape)
+            frame = draw_bboxes(frame, xyxy_annotations_bboxes, thickness=-1)
             
-            #TEMP: save frame as is
-            output_image_pathTEMP = os.path.join(images_folder, f'{base_image_name}_{d}_{idx}withmasksTEMP.png')
-            cv2.imwrite(output_image_pathTEMP, current_frame) # TEMP
             # paste patches located in the annotations boxes
-            current_frame[temp_copy_bboxes_content[:] != 0] = temp_copy_bboxes_content[temp_copy_bboxes_content[:] != 0]
-            #TEMP: save frame with correction
-            output_image_pathTEMP = os.path.join(images_folder, f'{base_image_name}_{d}_{idx}redrawpatchesTEMP.png')
-            cv2.imwrite(output_image_pathTEMP, current_frame) # TEMP
+            frame[temp_copy_bboxes_content[:] != 0] = temp_copy_bboxes_content[temp_copy_bboxes_content[:] != 0]
 
             # Save the image
             output_image_path = os.path.join(images_folder, f'{base_image_name}_{d}_{idx}.png')
-            cv2.imwrite(output_image_path, current_frame)
-            
-            # TEMP
-            if idx >= 10:
-                exit()
+            cv2.imwrite(output_image_path, frame)
+
+            # Save the YOLO formatted bounding boxes
+
+            # Save the SAM results (for statistics)
 
     exit()
 
@@ -413,7 +429,7 @@ def save_images_and_annotations(tif_path, csv_path, output_folder, box_width, nu
             # Yolo format annotations
             annotations_xywhn = []
             if apply_sam_bboxes:
-                results = apply_sam_model_bbox_list(img_array, bounding_boxes, sam_model)
+                results = apply_sam_bbox_list(img_array, bounding_boxes, sam_model)
             if apply_sam_points:
                 # TEMP: get the centers of the boxes and pass them as a prompt (awkward because we already have the point annotations)
                 centers = []
@@ -421,7 +437,7 @@ def save_images_and_annotations(tif_path, csv_path, output_folder, box_width, nu
                     x_center = (bbox[0] + bbox[2]) // 2
                     y_center = (bbox[1] + bbox[3]) // 2
                     centers.append([x_center, y_center])
-                results:list = apply_sam_model_point_list(img_array, centers, sam_model)
+                results:list = apply_sam_point_list(img_array, centers, sam_model)
             if apply_sam_bboxes or apply_sam_points:
                 for pred_box in results[0].boxes:# Results est une liste, avec un élément par image (donc 1 element dans notre cas)
                     x_center, y_center, width, height = pred_box.xywhn[0] # YOLO format normalized bounding box
